@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "luolingo",
-    "slug": "luolingo",
+    "name": "Luo101",
+    "slug": "luo101",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -20,6 +20,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }
