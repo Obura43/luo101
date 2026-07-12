@@ -1089,6 +1089,8 @@ function PracticeScreen({
 }
 
 function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
+  const { width } = useWindowDimensions();
+  const isWide = width >= 920;
   const [playingAudioKey, setPlayingAudioKey] = useState<string | null>(null);
   const [audioErrorKey, setAudioErrorKey] = useState<string | null>(null);
   const activeAudioRef = useRef<{ key: string; player: ReturnType<typeof createAudioPlayer> } | null>(null);
@@ -1098,6 +1100,7 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
       unitLabel: `${unit.unitLabel ?? `Unit ${index + 1}`}: ${unit.title}`,
     })),
   );
+  const recordedCount = phrases.filter((phrase) => hasAudioForKey(phrase.audioKey)).length;
 
   useEffect(
     () => () => {
@@ -1137,54 +1140,76 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
   }
 
   return (
-    <View>
-      <Text style={styles.kicker}>Phrasebook</Text>
-      <Text style={styles.screenTitle}>Luo101 phrases unlocked so far</Text>
-      {phrases.map((phrase) => {
-        const audio = getAudioForKey(phrase.audioKey);
-        const isPlaying = playingAudioKey === phrase.audioKey;
-        const hasError = audioErrorKey === phrase.audioKey;
-        const audioLabel = audio ? (isPlaying ? 'Playing' : 'Play') : 'Audio Soon';
+    <View style={styles.phrasebookPage}>
+      <View style={[styles.phrasebookHero, !isWide && styles.phrasebookHeroCompact]}>
+        <View style={styles.phrasebookHeroCopy}>
+          <Text style={styles.kickerOnDark}>Phrasebook</Text>
+          <Text style={styles.phrasebookTitle}>Hear Dholuo. Keep it close.</Text>
+          <Text style={styles.phrasebookIntro}>
+            A growing bank of useful phrases, greetings, family language, stories, and everyday words for practicing sound and preserving speech.
+          </Text>
+        </View>
+        <View style={[styles.phrasebookStats, !isWide && styles.phrasebookStatsCompact]}>
+          <View style={styles.phrasebookStat}>
+            <Text style={styles.phrasebookStatValue}>{phrases.length}</Text>
+            <Text style={styles.phrasebookStatLabel}>phrases</Text>
+          </View>
+          <View style={styles.phrasebookStat}>
+            <Text style={styles.phrasebookStatValue}>{recordedCount}</Text>
+            <Text style={styles.phrasebookStatLabel}>with audio</Text>
+          </View>
+        </View>
+      </View>
 
-        return (
-          <View key={`${phrase.unitLabel}-${phrase.audioKey}`} style={styles.phraseCard}>
-            <Text style={styles.phraseCategory}>{phrase.category}</Text>
-            <View style={styles.phraseTop}>
-              <View style={styles.phraseCopy}>
-                <Text style={styles.phrase}>{phrase.dholuo}</Text>
-                <Text style={styles.translation}>{phrase.english}</Text>
+      <View style={[styles.phraseGrid, isWide && styles.phraseGridWide]}>
+        {phrases.map((phrase) => {
+          const audio = getAudioForKey(phrase.audioKey);
+          const isPlaying = playingAudioKey === phrase.audioKey;
+          const hasError = audioErrorKey === phrase.audioKey;
+          const audioLabel = audio ? (isPlaying ? 'Playing' : 'Play') : 'Audio Soon';
+
+          return (
+            <View key={`${phrase.unitLabel}-${phrase.audioKey}`} style={[styles.phraseCard, isWide && styles.phraseCardWide]}>
+              <View style={styles.phraseCardHeader}>
+                <Text style={styles.phraseCategory}>{phrase.category}</Text>
+                <Text style={styles.phraseUnitPill}>{phrase.unitLabel}</Text>
               </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={
-                  audio ? `Play recording for ${phrase.dholuo}` : `Audio not recorded yet for ${phrase.dholuo}`
-                }
-                disabled={!audio}
-                onPress={() => playPhraseAudio(phrase.audioKey)}
-                style={[
-                  styles.audioButton,
-                  audio && styles.audioButtonReady,
-                  isPlaying && styles.audioButtonPlaying,
-                  hasError && styles.audioButtonError,
-                ]}
-              >
-                <Text
+              <View style={styles.phraseTop}>
+                <View style={styles.phraseCopy}>
+                  <Text style={styles.phrase}>{phrase.dholuo}</Text>
+                  <Text style={styles.translation}>{phrase.english}</Text>
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={
+                    audio ? `Play recording for ${phrase.dholuo}` : `Audio not recorded yet for ${phrase.dholuo}`
+                  }
+                  disabled={!audio}
+                  onPress={() => playPhraseAudio(phrase.audioKey)}
                   style={[
-                                    styles.audioText,
-                    audio && styles.audioTextReady,
-                    isPlaying && styles.audioTextPlaying,
-                    hasError && styles.audioTextError,
+                    styles.audioButton,
+                    audio && styles.audioButtonReady,
+                    isPlaying && styles.audioButtonPlaying,
+                    hasError && styles.audioButtonError,
                   ]}
                 >
-                  {hasError ? 'Try Again' : audioLabel}
-                </Text>
-              </Pressable>
+                  <Text
+                    style={[
+                      styles.audioText,
+                      audio && styles.audioTextReady,
+                      isPlaying && styles.audioTextPlaying,
+                      hasError && styles.audioTextError,
+                    ]}
+                  >
+                    {hasError ? 'Try Again' : audioLabel}
+                  </Text>
+                </Pressable>
+              </View>
+              <Text style={styles.usage}>{phrase.usage}</Text>
             </View>
-            <Text style={styles.cardLabel}>{phrase.unitLabel}</Text>
-            <Text style={styles.usage}>{phrase.usage}</Text>
-          </View>
-        );
-      })}
+          );
+        })}
+      </View>
     </View>
   );
 }
@@ -1415,7 +1440,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    maxWidth: 760,
+    maxWidth: 1180,
     width: '100%',
   },
   brand: {
@@ -1459,8 +1484,9 @@ const styles = StyleSheet.create({
   },
   contentInner: {
     alignSelf: 'center',
-    maxWidth: 760,
-    padding: 14,
+    maxWidth: 1180,
+    paddingHorizontal: 24,
+    paddingTop: 18,
     paddingBottom: 116,
     width: '100%',
   },
@@ -2678,19 +2704,113 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     marginBottom: 16,
   },
-  phraseCard: {
+  phrasebookPage: {
+    gap: 16,
+  },
+  phrasebookHero: {
+    alignItems: 'stretch',
+    backgroundColor: '#10251B',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 18,
+    justifyContent: 'space-between',
+    padding: 22,
+  },
+  phrasebookHeroCompact: {
+    flexDirection: 'column',
+    padding: 18,
+  },
+  phrasebookHeroCopy: {
+    flex: 1,
+  },
+  phrasebookTitle: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '900',
+    lineHeight: 40,
+    marginTop: 6,
+  },
+  phrasebookIntro: {
+    color: '#D9F5E9',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginTop: 8,
+    maxWidth: 720,
+  },
+  phrasebookStats: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  phrasebookStatsCompact: {
+    flexWrap: 'wrap',
+  },
+  phrasebookStat: {
+    alignItems: 'center',
+    backgroundColor: '#F7FAF6',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    minWidth: 96,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  phrasebookStatValue: {
+    color: '#0E6B4F',
+    fontSize: 24,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  phrasebookStatLabel: {
+    color: '#40514A',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  phraseGrid: {
+    gap: 14,
+  },
+  phraseGridWide: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },  phraseCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#DDE8D8',
     borderRadius: 8,
     borderWidth: 1,
-    marginBottom: 12,
-    padding: 16,
+    minHeight: 194,
+    padding: 18,
+  },
+  phraseCardWide: {
+    flexBasis: '48.7%',
+    flexGrow: 1,
+  },
+  phraseCardHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+    marginBottom: 10,
   },
   phraseCategory: {
     color: '#C1562E',
+    flexShrink: 0,
     fontSize: 11,
     fontWeight: '900',
-    marginBottom: 8,
+    textTransform: 'uppercase',
+  },
+  phraseUnitPill: {
+    backgroundColor: '#E4F2EE',
+    borderRadius: 8,
+    color: '#0E6B4F',
+    flexShrink: 1,
+    fontSize: 10,
+    fontWeight: '900',
+    lineHeight: 14,
+    overflow: 'hidden',
+    paddingHorizontal: 8,
+    paddingVertical: 5,
     textTransform: 'uppercase',
   },
   phraseTop: {
@@ -2867,14 +2987,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   nav: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderTopColor: '#DDE8D8',
     borderTopWidth: 1,
     bottom: 0,
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
+    justifyContent: 'center',
     left: 0,
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     position: 'absolute',
     right: 0,
@@ -2882,7 +3003,9 @@ const styles = StyleSheet.create({
   navButton: {
     alignItems: 'center',
     borderRadius: 8,
-    flex: 1,
+    flexBasis: 0,
+    flexGrow: 1,
+    maxWidth: 220,
     minHeight: 48,
     justifyContent: 'center',
   },
