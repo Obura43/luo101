@@ -4,7 +4,7 @@
     "slug": "luo101",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/luo101-favicon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true
@@ -19,7 +19,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png",
+      "favicon": "./assets/luo101-favicon.png",
       "bundler": "metro",
       "output": "single",
       "name": "Luo101 | Learn Dholuo",

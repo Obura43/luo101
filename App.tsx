@@ -2,6 +2,7 @@ import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -20,6 +21,8 @@ import {
 } from './src/data/lessons';
 import { getAudioForKey, hasAudioForKey } from './src/data/audioManifest';
 import { dictionaryEntries, type DictionaryEntry } from './src/data/dictionary';
+
+const brandLogo = require('./assets/luo101-logo.png');
 
 type Tab = 'learn' | 'lesson' | 'practice' | 'review' | 'phrases' | 'profile';
 type UnitProgress = {
@@ -228,9 +231,8 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.topBar}>
         <View style={styles.topBarInner}>
-          <View>
-            <Text style={styles.brand}>Luo101</Text>
-            <Text style={styles.brandSub}>Learn Dholuo. Speak it. Pass it on.</Text>
+          <View style={styles.brandLockup}>
+            <Image source={brandLogo} style={styles.brandLogo} resizeMode="contain" />
           </View>
           <View style={styles.statsRow}>
             <Stat label="XP" value={xp.toString()} />
@@ -1442,6 +1444,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     maxWidth: 1180,
     width: '100%',
+  },
+  brandLockup: {
+    justifyContent: 'center',
+    minHeight: 58,
+  },
+  brandLogo: {
+    height: 58,
+    maxWidth: 360,
+    width: 300,
   },
   brand: {
     color: '#10251B',

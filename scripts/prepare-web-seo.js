@@ -6,6 +6,8 @@ const appName = 'Luo101';
 const title = 'Luo101 | Learn Dholuo. Speak it. Pass it on.';
 const description = 'Learn Dholuo through playful lessons, audio practice, stories, and an A-Z Luo dictionary built to help preserve and pass on the beauty of Luo language and culture.';
 const keywords = 'Luo101, Dholuo, Luo language, learn Dholuo, learn Luo, Luo culture, Kenya languages, African languages, language preservation';
+const faviconFile = 'luo101-favicon.png';
+const logoFile = 'luo101-logo.png';
 const distDir = path.join(__dirname, '..', 'dist');
 const indexPath = path.join(distDir, 'index.html');
 
@@ -28,11 +30,11 @@ const seoHead = `
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
     <meta property="og:url" content="${siteUrl}/" />
-    <meta property="og:image" content="${siteUrl}/favicon.ico" />
+    <meta property="og:image" content="${siteUrl}/${logoFile}" />
     <meta name="twitter:card" content="summary" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
-    <meta name="twitter:image" content="${siteUrl}/favicon.ico" />`;
+    <meta name="twitter:image" content="${siteUrl}/${logoFile}" />`;
 
 html = html
   .replace(/<title>.*?<\/title>/s, '')
@@ -42,6 +44,9 @@ html = html
   .replace(/<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" \/>/, '<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />' + seoHead);
 
 fs.writeFileSync(indexPath, html);
+
+fs.copyFileSync(path.join(__dirname, '..', 'assets', faviconFile), path.join(distDir, faviconFile));
+fs.copyFileSync(path.join(__dirname, '..', 'assets', logoFile), path.join(distDir, logoFile));
 
 fs.writeFileSync(path.join(distDir, 'robots.txt'), `User-agent: *\nAllow: /\n\nSitemap: ${siteUrl}/sitemap.xml\n`);
 fs.writeFileSync(path.join(distDir, 'sitemap.xml'), `<?xml version="1.0" encoding="UTF-8"?>
@@ -67,9 +72,9 @@ fs.writeFileSync(
       theme_color: '#0E6B4F',
       icons: [
         {
-          src: '/favicon.ico',
-          sizes: '48x48',
-          type: 'image/x-icon',
+          src: `/${faviconFile}`,
+          sizes: '1024x1024',
+          type: 'image/png',
         },
       ],
     },
@@ -77,5 +82,4 @@ fs.writeFileSync(
     2,
   ) + '\n',
 );
-
 console.log(`SEO files prepared for ${siteUrl}`);
