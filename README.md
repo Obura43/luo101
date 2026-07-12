@@ -1,6 +1,6 @@
 # Luo101
 
-Luo101 is a playful but premium Expo app for learning Dholuo in short, useful lessons.
+Luo101 is a playful but premium Expo app for learning Dholuo. Learn Dholuo. Speak it. Pass it on. The project treats language learning as preservation: a way to keep Luo words, stories, humor, family language, and cultural memory alive for the next generation.
 
 ## Current Prototype
 
@@ -30,11 +30,28 @@ If the browser cannot reach `localhost` on Windows, use:
 http://[::1]:8081
 ```
 
+## Public Positioning
+
+Tagline: `Learn Dholuo. Speak it. Pass it on.`
+
+The web version should present Luo101 as both a learning tool and a cultural preservation project for the beautiful Luo language.
+
 ## Verify
 
 ```bash
 npm run typecheck
 ```
+
+## Web Deployment
+
+Luo101 is ready to export as a single-page web app for `luo101.org`.
+
+```bash
+npm run typecheck
+npm run build:web
+```
+
+The production site is generated in `dist/`. Deployment notes for Vercel, Netlify, DNS, HTTPS, and pre-launch checks are in `WEB_DEPLOYMENT.md`.
 
 ## Supabase Direction
 

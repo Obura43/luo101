@@ -230,7 +230,7 @@ export default function App() {
         <View style={styles.topBarInner}>
           <View>
             <Text style={styles.brand}>Luo101</Text>
-            <Text style={styles.brandSub}>Dholuo in small bright steps</Text>
+            <Text style={styles.brandSub}>Learn Dholuo. Speak it. Pass it on.</Text>
           </View>
           <View style={styles.statsRow}>
             <Stat label="XP" value={xp.toString()} />
@@ -368,6 +368,7 @@ function LearnScreen({
           </View>
           <Text style={[styles.heroTitle, isCompact && styles.heroTitleCompact]}>{unit.title}</Text>
           <Text style={[styles.heroText, isCompact && styles.heroTextCompact]}>{unit.subtitle}</Text>
+          <Text style={[styles.heroMission, isCompact && styles.heroMissionCompact]}>A living language carries memory, family, humor, song, and belonging. Luo101 helps learners preserve and pass on the beauty of Luo culture one useful phrase at a time.</Text>
           <Text style={[styles.heroGoal, isCompact && styles.heroGoalCompact]}>{unit.goal}</Text>
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${Math.max(lessonProgress, 0.08) * 100}%` }]} />
@@ -1540,6 +1541,24 @@ const styles = StyleSheet.create({
   heroTextCompact: {
     fontSize: 14,
     lineHeight: 20,
+  },
+  heroMission: {
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderColor: 'rgba(241, 200, 75, 0.38)',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#FFF6D3',
+    fontSize: 14,
+    fontWeight: '800',
+    lineHeight: 20,
+    marginTop: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  heroMissionCompact: {
+    fontSize: 13,
+    lineHeight: 19,
+    paddingHorizontal: 10,
   },
   heroGoal: {
     color: '#FFFFFF',
@@ -2879,17 +2898,4 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
-
-
-
-
-
-
-
-
-
-
-
-
 

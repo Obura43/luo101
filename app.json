@@ -19,10 +19,20 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "Luo101 | Learn Dholuo",
+      "shortName": "Luo101",
+      "lang": "en",
+      "themeColor": "#0E6B4F",
+      "backgroundColor": "#F7FAF6",
+      "description": "Learn Dholuo through playful lessons, audio practice, stories, and an A-Z Luo dictionary built to help preserve and pass on the beauty of Luo language and culture."
     },
     "plugins": [
       "expo-audio"
-    ]
+    ],
+    "description": "Learn Dholuo through playful lessons, audio practice, stories, and an A-Z Luo dictionary built to help preserve and pass on the beauty of Luo language and culture.",
+    "scheme": "luo101"
   }
 }
