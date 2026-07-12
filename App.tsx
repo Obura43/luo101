@@ -22,7 +22,7 @@ import {
 import { getAudioForKey, hasAudioForKey } from './src/data/audioManifest';
 import { dictionaryEntries, type DictionaryEntry } from './src/data/dictionary';
 
-const brandLogo = require('./assets/luo101-logo-cropped.png');
+const brandLogo = require('./assets/luo101-logo-transparent.png');
 
 type Tab = 'learn' | 'lesson' | 'practice' | 'review' | 'phrases' | 'profile';
 type UnitProgress = {
@@ -1454,7 +1454,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   topBarInnerCompact: {
-    paddingHorizontal: 32,
+    paddingHorizontal: 24,
   },
   brandLockup: {
     flexShrink: 1,
@@ -1462,14 +1462,14 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
   brandLogo: {
-    height: 96,
-    maxWidth: 720,
-    width: 560,
+    height: 104,
+    maxWidth: 760,
+    width: 620,
   },
   brandLogoCompact: {
-    height: 76,
-    maxWidth: 360,
-    width: 330,
+    height: 82,
+    maxWidth: 390,
+    width: 370,
   },
   brand: {
     color: '#10251B',
