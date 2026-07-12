@@ -1441,7 +1441,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#DDE8D8',
     borderBottomWidth: 1,
     paddingHorizontal: 0,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   topBarInner: {
     alignItems: 'center',
@@ -1459,17 +1459,17 @@ const styles = StyleSheet.create({
   brandLockup: {
     flexShrink: 1,
     justifyContent: 'center',
-    minHeight: 96,
+    minHeight: 76,
   },
   brandLogo: {
-    height: 104,
-    maxWidth: 760,
-    width: 620,
+    height: 76,
+    maxWidth: 560,
+    width: 460,
   },
   brandLogoCompact: {
-    height: 82,
-    maxWidth: 390,
-    width: 370,
+    height: 56,
+    maxWidth: 300,
+    width: 270,
   },
   brand: {
     color: '#10251B',
@@ -2524,7 +2524,7 @@ const styles = StyleSheet.create({
   guidedDialogueLine: {
     borderTopColor: '#E8EFEA',
     borderTopWidth: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   reviewHero: {
     backgroundColor: '#0E6B4F',
@@ -2782,7 +2782,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     minWidth: 96,
     paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   phrasebookStatValue: {
     color: '#0E6B4F',
@@ -3024,7 +3024,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     left: 0,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 8,
     position: 'absolute',
     right: 0,
   },
