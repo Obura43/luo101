@@ -92,6 +92,8 @@ function setDocumentTitle(title: string) {
 }
 
 export default function App() {
+  const { width } = useWindowDimensions();
+  const isCompactShell = width < 720;
   const savedProgress = useMemo(() => readProgress(), []);
   const [tab, setTab] = useState<Tab>('learn');
   const [exerciseIndex, setExerciseIndex] = useState(0);
@@ -230,9 +232,13 @@ export default function App() {
     <SafeAreaView style={styles.shell}>
       <StatusBar style="dark" />
       <View style={styles.topBar}>
-        <View style={styles.topBarInner}>
+        <View style={[styles.topBarInner, isCompactShell && styles.topBarInnerCompact]}>
           <View style={styles.brandLockup}>
-            <Image source={brandLogo} style={styles.brandLogo} resizeMode="contain" />
+            <Image
+              source={brandLogo}
+              style={[styles.brandLogo, isCompactShell && styles.brandLogoCompact]}
+              resizeMode="contain"
+            />
           </View>
           <View style={styles.statsRow}>
             <Stat label="XP" value={xp.toString()} />
@@ -1434,25 +1440,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7FAF6',
     borderBottomColor: '#DDE8D8',
     borderBottomWidth: 1,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingHorizontal: 0,
+    paddingVertical: 14,
   },
   topBarInner: {
     alignItems: 'center',
     alignSelf: 'center',
     flexDirection: 'row',
+    gap: 16,
     justifyContent: 'space-between',
     maxWidth: 1180,
+    paddingHorizontal: 24,
     width: '100%',
   },
+  topBarInnerCompact: {
+    paddingHorizontal: 14,
+  },
   brandLockup: {
+    flexShrink: 1,
     justifyContent: 'center',
-    minHeight: 58,
+    minHeight: 82,
   },
   brandLogo: {
-    height: 58,
-    maxWidth: 360,
-    width: 300,
+    height: 82,
+    maxWidth: 480,
+    width: 430,
+  },
+  brandLogoCompact: {
+    height: 52,
+    maxWidth: 230,
+    width: 220,
   },
   brand: {
     color: '#10251B',
