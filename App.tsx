@@ -120,6 +120,7 @@ export default function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [profileName, setProfileName] = useState('Luo101 Learner');
   const [authEmail, setAuthEmail] = useState('');
+  const [authEmailConfirm, setAuthEmailConfirm] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authDisplayName, setAuthDisplayName] = useState('');
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
@@ -324,7 +325,8 @@ export default function App() {
       return;
     }
 
-    const email = authEmail.trim();
+    const email = authEmail.trim().toLowerCase();
+    const emailConfirm = authEmailConfirm.trim().toLowerCase();
     const password = authPassword.trim();
 
     if (!email || !password) {
@@ -332,16 +334,48 @@ export default function App() {
       return;
     }
 
+    if (authMode === 'sign-up' && email !== emailConfirm) {
+      setAuthMessage('The two email addresses must match.');
+      return;
+    }
+
     setAuthMessage(authMode === 'sign-up' ? 'Creating your profile...' : 'Signing you in...');
 
-    const result =
-      authMode === 'sign-up'
-        ? await supabase.auth.signUp({
-            email,
-            password,
-            options: { data: { display_name: authDisplayName.trim() || 'Luo101 Learner' } },
-          })
-        : await supabase.auth.signInWithPassword({ email, password });
+    if (authMode === 'sign-up') {
+      const result = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { display_name: authDisplayName.trim() || 'Luo101 Learner' } },
+      });
+
+      if (result.error) {
+        setAuthMessage(result.error.message);
+        return;
+      }
+
+      const activeSession = result.data.session;
+
+      if (activeSession) {
+        setSession(activeSession);
+        setAuthPassword('');
+        setAuthMessage('Profile created. You are signed in.');
+        return;
+      }
+
+      const signInResult = await supabase.auth.signInWithPassword({ email, password });
+
+      if (signInResult.error) {
+        setAuthMessage('Profile created, but Supabase email confirmation is still enabled. Turn off Confirm email, then sign in.');
+        return;
+      }
+
+      setSession(signInResult.data.session);
+      setAuthPassword('');
+      setAuthMessage('Profile created. You are signed in.');
+      return;
+    }
+
+    const result = await supabase.auth.signInWithPassword({ email, password });
 
     if (result.error) {
       setAuthMessage(result.error.message);
@@ -350,7 +384,7 @@ export default function App() {
 
     setSession(result.data.session);
     setAuthPassword('');
-    setAuthMessage(authMode === 'sign-up' ? 'Profile created. Check email confirmation if Supabase asks for it.' : 'Signed in.');
+    setAuthMessage('Signed in.');
   }
 
   async function handleSignOut() {
@@ -519,6 +553,7 @@ export default function App() {
           <ProfileScreen
             authDisplayName={authDisplayName}
             authEmail={authEmail}
+            authEmailConfirm={authEmailConfirm}
             authMessage={authMessage}
             authMode={authMode}
             authPassword={authPassword}
@@ -536,6 +571,7 @@ export default function App() {
             selectedUnitId={selectedUnitId}
             onAuthDisplayNameChange={setAuthDisplayName}
             onAuthEmailChange={setAuthEmail}
+            onAuthEmailConfirmChange={setAuthEmailConfirm}
             onAuthModeChange={setAuthMode}
             onAuthPasswordChange={setAuthPassword}
             onAuthSubmit={handleAuthSubmit}
@@ -1514,6 +1550,7 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
 function ProfileScreen({
   authDisplayName,
   authEmail,
+  authEmailConfirm,
   authMessage,
   authMode,
   authPassword,
@@ -1531,6 +1568,7 @@ function ProfileScreen({
   selectedUnitId,
   onAuthDisplayNameChange,
   onAuthEmailChange,
+  onAuthEmailConfirmChange,
   onAuthModeChange,
   onAuthPasswordChange,
   onAuthSubmit,
@@ -1541,6 +1579,7 @@ function ProfileScreen({
 }: {
   authDisplayName: string;
   authEmail: string;
+  authEmailConfirm: string;
   authMessage: string;
   authMode: 'sign-in' | 'sign-up';
   authPassword: string;
@@ -1558,6 +1597,7 @@ function ProfileScreen({
   selectedUnitId: string;
   onAuthDisplayNameChange: (value: string) => void;
   onAuthEmailChange: (value: string) => void;
+  onAuthEmailConfirmChange: (value: string) => void;
   onAuthModeChange: (value: 'sign-in' | 'sign-up') => void;
   onAuthPasswordChange: (value: string) => void;
   onAuthSubmit: () => void;
@@ -1593,7 +1633,7 @@ function ProfileScreen({
             <Text style={styles.cardLabel}>{session ? 'Cloud Profile' : 'Create Your Profile'}</Text>
             <Text style={styles.profileAccountTitle}>{session ? profileName : 'Save your Luo101 progress'}</Text>
             <Text style={styles.profileAccountSubtext}>
-              {session ? session.user.email : 'Sign in to sync XP, streaks, completed units, and review progress across devices.'}
+              {session ? session.user.email : 'Create an account once, then sign in immediately to sync XP, streaks, completed units, and review progress.'}
             </Text>
           </View>
         </View>
@@ -1661,6 +1701,19 @@ function ProfileScreen({
               style={styles.profileInput}
               value={authEmail}
             />
+            {authMode === 'sign-up' ? (
+              <TextInput
+                accessibilityLabel="Confirm email address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                onChangeText={onAuthEmailConfirmChange}
+                placeholder="Type email again"
+                placeholderTextColor="#7A8A82"
+                style={styles.profileInput}
+                value={authEmailConfirm}
+              />
+            ) : null}
             <TextInput
               accessibilityLabel="Password"
               autoCapitalize="none"
