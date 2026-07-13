@@ -1,6 +1,7 @@
 import { createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import {
   Image,
   Pressable,
@@ -21,6 +22,7 @@ import {
 } from './src/data/lessons';
 import { getAudioForKey, hasAudioForKey } from './src/data/audioManifest';
 import { dictionaryEntries, type DictionaryEntry } from './src/data/dictionary';
+import { isSupabaseConfigured, supabase } from './src/lib/supabase';
 
 const brandLogo = require('./assets/luo101-logo-transparent.png');
 
@@ -37,6 +39,18 @@ type SavedProgress = {
   xp: number;
   streak: number;
   units: Record<string, UnitProgress>;
+};
+
+type ProfileRecord = {
+  display_name: string;
+  avatar_url: string | null;
+};
+
+type ProgressRecord = {
+  xp: number;
+  streak_days: number;
+  selected_unit_id: string;
+  unit_progress: Record<string, UnitProgress>;
 };
 
 type StorageLike = {
@@ -103,6 +117,14 @@ export default function App() {
   const [streak, setStreak] = useState(savedProgress?.streak ?? 4);
   const [selectedUnitId, setSelectedUnitId] = useState(savedProgress?.selectedUnitId ?? learningUnits[0].id);
   const [unitProgressById, setUnitProgressById] = useState<Record<string, UnitProgress>>(savedProgress?.units ?? {});
+  const [session, setSession] = useState<Session | null>(null);
+  const [profileName, setProfileName] = useState('Luo101 Learner');
+  const [authEmail, setAuthEmail] = useState('');
+  const [authPassword, setAuthPassword] = useState('');
+  const [authDisplayName, setAuthDisplayName] = useState('');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [authMessage, setAuthMessage] = useState('');
+  const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
 
   const unitIndex = Math.max(
     learningUnits.findIndex((unit) => unit.id === selectedUnitId),
@@ -160,9 +182,201 @@ export default function App() {
   }, [selectedUnitId, xp, streak, unitProgressById]);
 
   useEffect(() => {
+    if (!isSupabaseConfigured) {
+      return;
+    }
+
+    let isMounted = true;
+
+    void supabase.auth.getSession().then(({ data }) => {
+      if (isMounted) {
+        setSession(data.session);
+      }
+    });
+
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (isMounted) {
+        setSession(nextSession);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    void loadCloudProfile(session);
+  }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!session) {
+      return;
+    }
+
+    const syncTimer = setTimeout(() => {
+      void syncProgressToCloud();
+    }, 900);
+
+    return () => clearTimeout(syncTimer);
+  }, [session?.user.id, selectedUnitId, xp, streak, unitProgressById]);
+
+  useEffect(() => {
     resetExercise(0);
   }, [selectedUnitId]);
 
+  function getCurrentProgress(): SavedProgress {
+    return {
+      selectedUnitId,
+      xp,
+      streak,
+      units: unitProgressById,
+    };
+  }
+
+  function applyProgress(progress: SavedProgress) {
+    setXp(progress.xp);
+    setStreak(progress.streak);
+    setSelectedUnitId(progress.selectedUnitId || learningUnits[0].id);
+    setUnitProgressById(progress.units ?? {});
+    writeProgress(progress);
+  }
+
+  async function loadCloudProfile(activeSession: Session) {
+    setSyncStatus('Loading cloud profile...');
+
+    const user = activeSession.user;
+    const fallbackName = user.email?.split('@')[0] || 'Luo101 Learner';
+    const requestedName = authDisplayName.trim() || fallbackName;
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('display_name, avatar_url')
+      .eq('id', user.id)
+      .maybeSingle<ProfileRecord>();
+
+    if (profileError) {
+      setSyncStatus(`Profile setup needed: ${profileError.message}`);
+    }
+
+    if (profile) {
+      setProfileName(profile.display_name || fallbackName);
+      setAuthDisplayName(profile.display_name || fallbackName);
+    } else {
+      const { error } = await supabase.from('profiles').upsert({ id: user.id, display_name: requestedName });
+
+      if (!error) {
+        setProfileName(requestedName);
+        setAuthDisplayName(requestedName);
+      }
+    }
+
+    const { data: cloudProgress, error: progressError } = await supabase
+      .from('user_progress')
+      .select('xp, streak_days, selected_unit_id, unit_progress')
+      .eq('user_id', user.id)
+      .maybeSingle<ProgressRecord>();
+
+    if (progressError) {
+      setSyncStatus(`Progress setup needed: ${progressError.message}`);
+      return;
+    }
+
+    if (cloudProgress) {
+      applyProgress({
+        selectedUnitId: cloudProgress.selected_unit_id || learningUnits[0].id,
+        xp: cloudProgress.xp ?? 120,
+        streak: cloudProgress.streak_days ?? 4,
+        units: cloudProgress.unit_progress ?? {},
+      });
+      setSyncStatus('Cloud progress loaded.');
+      return;
+    }
+
+    await syncProgressToCloud(activeSession);
+  }
+
+  async function syncProgressToCloud(activeSession = session) {
+    if (!activeSession) {
+      return;
+    }
+
+    const progress = getCurrentProgress();
+    const { error } = await supabase.from('user_progress').upsert({
+      user_id: activeSession.user.id,
+      xp: progress.xp,
+      streak_days: progress.streak,
+      selected_unit_id: progress.selectedUnitId,
+      unit_progress: progress.units,
+    });
+
+    setSyncStatus(error ? `Cloud sync failed: ${error.message}` : 'Cloud progress saved.');
+  }
+
+  async function handleAuthSubmit() {
+    if (!isSupabaseConfigured) {
+      setAuthMessage('Supabase is not configured yet.');
+      return;
+    }
+
+    const email = authEmail.trim();
+    const password = authPassword.trim();
+
+    if (!email || !password) {
+      setAuthMessage('Add an email and password first.');
+      return;
+    }
+
+    setAuthMessage(authMode === 'sign-up' ? 'Creating your profile...' : 'Signing you in...');
+
+    const result =
+      authMode === 'sign-up'
+        ? await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { display_name: authDisplayName.trim() || 'Luo101 Learner' } },
+          })
+        : await supabase.auth.signInWithPassword({ email, password });
+
+    if (result.error) {
+      setAuthMessage(result.error.message);
+      return;
+    }
+
+    setSession(result.data.session);
+    setAuthPassword('');
+    setAuthMessage(authMode === 'sign-up' ? 'Profile created. Check email confirmation if Supabase asks for it.' : 'Signed in.');
+  }
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    setSession(null);
+    setAuthMessage('Signed out. Progress is still saved on this device.');
+    setSyncStatus('Signed out.');
+  }
+
+  async function handleSaveProfileName() {
+    if (!session) {
+      setAuthMessage('Sign in first to save a profile name.');
+      return;
+    }
+
+    const nextName = authDisplayName.trim() || 'Luo101 Learner';
+    const { error } = await supabase.from('profiles').upsert({ id: session.user.id, display_name: nextName });
+
+    if (error) {
+      setAuthMessage(error.message);
+      return;
+    }
+
+    setProfileName(nextName);
+    setAuthMessage('Profile name saved.');
+  }
   function updateUnitProgress(updater: (current: UnitProgress) => UnitProgress) {
     setUnitProgressById((current) => ({
       ...current,
@@ -303,15 +517,32 @@ export default function App() {
         {tab === 'phrases' ? <PhrasebookScreen units={learningUnits} /> : null}
         {tab === 'profile' ? (
           <ProfileScreen
+            authDisplayName={authDisplayName}
+            authEmail={authEmail}
+            authMessage={authMessage}
+            authMode={authMode}
+            authPassword={authPassword}
             completedRounds={completedRounds}
+            isCloudConfigured={isSupabaseConfigured}
             lessonProgress={lessonProgress}
             mistakes={mistakes}
+            profileName={profileName}
+            session={session}
+            syncStatus={syncStatus}
             unit={unit}
             unitProgressById={unitProgressById}
             xp={xp}
             streak={streak}
             selectedUnitId={selectedUnitId}
+            onAuthDisplayNameChange={setAuthDisplayName}
+            onAuthEmailChange={setAuthEmail}
+            onAuthModeChange={setAuthMode}
+            onAuthPasswordChange={setAuthPassword}
+            onAuthSubmit={handleAuthSubmit}
+            onSaveProfileName={handleSaveProfileName}
             onSelectUnit={selectUnit}
+            onSignOut={handleSignOut}
+            onSyncNow={() => syncProgressToCloud()}
           />
         ) : null}
       </ScrollView>
@@ -1281,25 +1512,59 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
   );
 }
 function ProfileScreen({
+  authDisplayName,
+  authEmail,
+  authMessage,
+  authMode,
+  authPassword,
   completedRounds,
+  isCloudConfigured,
   lessonProgress,
   mistakes,
+  profileName,
+  session,
+  syncStatus,
   unit,
   unitProgressById,
   xp,
   streak,
   selectedUnitId,
+  onAuthDisplayNameChange,
+  onAuthEmailChange,
+  onAuthModeChange,
+  onAuthPasswordChange,
+  onAuthSubmit,
+  onSaveProfileName,
   onSelectUnit,
+  onSignOut,
+  onSyncNow,
 }: {
+  authDisplayName: string;
+  authEmail: string;
+  authMessage: string;
+  authMode: 'sign-in' | 'sign-up';
+  authPassword: string;
   completedRounds: number;
+  isCloudConfigured: boolean;
   lessonProgress: number;
   mistakes: number;
+  profileName: string;
+  session: Session | null;
+  syncStatus: string;
   unit: LearningUnit;
   unitProgressById: Record<string, UnitProgress>;
   xp: number;
   streak: number;
   selectedUnitId: string;
+  onAuthDisplayNameChange: (value: string) => void;
+  onAuthEmailChange: (value: string) => void;
+  onAuthModeChange: (value: 'sign-in' | 'sign-up') => void;
+  onAuthPasswordChange: (value: string) => void;
+  onAuthSubmit: () => void;
+  onSaveProfileName: () => void;
   onSelectUnit: (unitId: string, nextTab?: Tab) => void;
+  onSignOut: () => void;
+  onSyncNow: () => void;
 }) {
   const completedUnits = learningUnits.filter((item) => {
     const progress = unitProgressById[item.id];
@@ -1319,11 +1584,105 @@ function ProfileScreen({
         <MetricCard label="Rounds" value={completedRounds.toString()} />
         <MetricCard label="Misses" value={mistakes.toString()} />
       </View>
-      <View style={styles.cultureCard}>
-        <Text style={styles.cardLabel}>Supabase Ready</Text>
-        <Text style={styles.cultureText}>
-          Auth, profiles, progress, review mistakes, lesson content, and audio storage are planned as backend tables and buckets.
-        </Text>
+      <View style={styles.profileAccountCard}>
+        <View style={styles.profileAccountHeader}>
+          <View style={styles.profileAvatar}>
+            <Text style={styles.profileAvatarText}>{profileName.trim().charAt(0).toUpperCase() || 'L'}</Text>
+          </View>
+          <View style={styles.profileAccountCopy}>
+            <Text style={styles.cardLabel}>{session ? 'Cloud Profile' : 'Create Your Profile'}</Text>
+            <Text style={styles.profileAccountTitle}>{session ? profileName : 'Save your Luo101 progress'}</Text>
+            <Text style={styles.profileAccountSubtext}>
+              {session ? session.user.email : 'Sign in to sync XP, streaks, completed units, and review progress across devices.'}
+            </Text>
+          </View>
+        </View>
+
+        {session ? (
+          <View style={styles.profileAccountForm}>
+            <TextInput
+              accessibilityLabel="Display name"
+              autoCapitalize="words"
+              onChangeText={onAuthDisplayNameChange}
+              placeholder="Display name"
+              placeholderTextColor="#7A8A82"
+              style={styles.profileInput}
+              value={authDisplayName}
+            />
+            <View style={styles.profileActionRow}>
+              <Pressable accessibilityRole="button" onPress={onSaveProfileName} style={styles.profilePrimaryButton}>
+                <Text style={styles.profilePrimaryButtonText}>Save Name</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onSyncNow} style={styles.profileSecondaryButton}>
+                <Text style={styles.profileSecondaryButtonText}>Sync Now</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.profileGhostButton}>
+                <Text style={styles.profileGhostButtonText}>Sign Out</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.profileAccountForm}>
+            <View style={styles.profileModeSwitch}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => onAuthModeChange('sign-in')}
+                style={[styles.profileModeButton, authMode === 'sign-in' && styles.profileModeButtonActive]}
+              >
+                <Text style={[styles.profileModeText, authMode === 'sign-in' && styles.profileModeTextActive]}>Sign In</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => onAuthModeChange('sign-up')}
+                style={[styles.profileModeButton, authMode === 'sign-up' && styles.profileModeButtonActive]}
+              >
+                <Text style={[styles.profileModeText, authMode === 'sign-up' && styles.profileModeTextActive]}>Sign Up</Text>
+              </Pressable>
+            </View>
+            {authMode === 'sign-up' ? (
+              <TextInput
+                accessibilityLabel="Display name"
+                autoCapitalize="words"
+                onChangeText={onAuthDisplayNameChange}
+                placeholder="Display name"
+                placeholderTextColor="#7A8A82"
+                style={styles.profileInput}
+                value={authDisplayName}
+              />
+            ) : null}
+            <TextInput
+              accessibilityLabel="Email address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              onChangeText={onAuthEmailChange}
+              placeholder="Email address"
+              placeholderTextColor="#7A8A82"
+              style={styles.profileInput}
+              value={authEmail}
+            />
+            <TextInput
+              accessibilityLabel="Password"
+              autoCapitalize="none"
+              onChangeText={onAuthPasswordChange}
+              placeholder="Password"
+              placeholderTextColor="#7A8A82"
+              secureTextEntry
+              style={styles.profileInput}
+              value={authPassword}
+            />
+            <Pressable
+              accessibilityRole="button"
+              disabled={!isCloudConfigured}
+              onPress={onAuthSubmit}
+              style={[styles.profilePrimaryButton, !isCloudConfigured && styles.profileButtonDisabled]}
+            >
+              <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
+            </Pressable>
+          </View>
+        )}
+
+        <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
       </View>
 
       <View style={styles.sectionHeader}>
@@ -3051,6 +3410,149 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
     marginTop: 10,
+  },
+  profileAccountCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 14,
+    marginTop: 14,
+    padding: 18,
+  },
+  profileAccountHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 14,
+  },
+  profileAvatar: {
+    alignItems: 'center',
+    backgroundColor: '#0E6B4F',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 2,
+    height: 58,
+    justifyContent: 'center',
+    width: 58,
+  },
+  profileAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '900',
+  },
+  profileAccountCopy: {
+    flex: 1,
+  },
+  profileAccountTitle: {
+    color: '#10251B',
+    fontSize: 22,
+    fontWeight: '900',
+    lineHeight: 28,
+  },
+  profileAccountSubtext: {
+    color: '#6E7C75',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 2,
+  },
+  profileAccountForm: {
+    gap: 10,
+  },
+  profileModeSwitch: {
+    backgroundColor: '#E4F2EE',
+    borderRadius: 8,
+    flexDirection: 'row',
+    gap: 6,
+    padding: 5,
+  },
+  profileModeButton: {
+    alignItems: 'center',
+    borderRadius: 8,
+    flex: 1,
+    minHeight: 38,
+    justifyContent: 'center',
+  },
+  profileModeButtonActive: {
+    backgroundColor: '#0E6B4F',
+  },
+  profileModeText: {
+    color: '#0E6B4F',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileModeTextActive: {
+    color: '#FFFFFF',
+  },
+  profileInput: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#CFE0C9',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#10251B',
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  profileActionRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  profilePrimaryButton: {
+    alignItems: 'center',
+    backgroundColor: '#0E6B4F',
+    borderRadius: 8,
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  profileButtonDisabled: {
+    backgroundColor: '#AEBAB3',
+  },
+  profilePrimaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileSecondaryButton: {
+    alignItems: 'center',
+    backgroundColor: '#F1C84B',
+    borderRadius: 8,
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  profileSecondaryButtonText: {
+    color: '#10251B',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileGhostButton: {
+    alignItems: 'center',
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    minHeight: 46,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+  },
+  profileGhostButtonText: {
+    color: '#C1562E',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileSyncText: {
+    color: '#40514A',
+    fontSize: 13,
+    fontWeight: '800',
+    lineHeight: 19,
   },
   profileGrid: {
     flexDirection: 'row',
