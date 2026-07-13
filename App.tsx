@@ -727,6 +727,7 @@ export default function App() {
             onSelectUnit={selectUnit}
             onSignOut={handleSignOut}
             onSyncNow={() => syncProgressToCloud()}
+            onOpenPublicPage={openPublicPage}
           />
         ) : null}
           </>
@@ -1747,6 +1748,7 @@ function ProfileScreen({
   onSelectUnit,
   onSignOut,
   onSyncNow,
+  onOpenPublicPage,
 }: {
   authDisplayName: string;
   authEmail: string;
@@ -1778,6 +1780,7 @@ function ProfileScreen({
   onSelectUnit: (unitId: string, nextTab?: Tab) => void;
   onSignOut: () => void;
   onSyncNow: () => void;
+  onOpenPublicPage: (pageId: PublicPageId) => void;
 }) {
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const completedUnits = learningUnits.filter((item) => {
@@ -1893,6 +1896,7 @@ function ProfileScreen({
             <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
           </View>
         </View>
+        <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
       </View>
     );
   }
@@ -1955,6 +1959,8 @@ function ProfileScreen({
         <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
       </View>
 
+      <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
+
       <View style={styles.profileProgressCard}>
         <Pressable
           accessibilityRole="button"
@@ -1979,6 +1985,35 @@ function ProfileScreen({
   );
 }
 
+
+function ProfileTrustLinks({ onOpenPage }: { onOpenPage: (pageId: PublicPageId) => void }) {
+  const pages: PublicPageId[] = ['vision', 'mission', 'payments', 'privacy', 'terms', 'refunds', 'contact'];
+
+  return (
+    <View style={styles.profileTrustCard}>
+      <View style={styles.profileTrustHeader}>
+        <Text style={styles.cardLabel}>Account & Trust</Text>
+        <Text style={styles.profileTrustTitle}>Helpful Luo101 links</Text>
+        <Text style={styles.profileTrustText}>Read our vision, mission, payment notes, policies, and support details.</Text>
+      </View>
+      <View style={styles.profileTrustGrid}>
+        {pages.map((pageId) => {
+          const page = PUBLIC_PAGES[pageId];
+          return (
+            <Pressable
+              accessibilityRole="button"
+              key={`profile-link-${page.id}`}
+              onPress={() => onOpenPage(page.id)}
+              style={styles.profileTrustLink}
+            >
+              <Text style={styles.profileTrustLinkText}>{page.eyebrow}</Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
 function getUnitProgressMeta(unit: LearningUnit, progress?: UnitProgress) {
   const drillsDone = progress?.correctExerciseIds.length ?? 0;
   const percent = unit.exercises.length ? Math.round((drillsDone / unit.exercises.length) * 100) : 0;
@@ -3825,7 +3860,47 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
   },
-  profileProgressCard: {
+  profileTrustCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 14,
+  },
+  profileTrustHeader: {
+    marginBottom: 12,
+  },
+  profileTrustTitle: {
+    color: '#10251B',
+    fontSize: 18,
+    fontWeight: '900',
+  },
+  profileTrustText: {
+    color: '#5D6D65',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  profileTrustGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  profileTrustLink: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  profileTrustLinkText: {
+    color: '#0E6B4F',
+    fontSize: 12,
+    fontWeight: '900',
+  },  profileProgressCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#DDE8D8',
     borderRadius: 8,
@@ -4267,6 +4342,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
 
 
 
