@@ -1101,14 +1101,35 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
   const isWide = width >= 920;
   const [playingAudioKey, setPlayingAudioKey] = useState<string | null>(null);
   const [audioErrorKey, setAudioErrorKey] = useState<string | null>(null);
+  const [phraseQuery, setPhraseQuery] = useState('');
   const activeAudioRef = useRef<{ key: string; player: ReturnType<typeof createAudioPlayer> } | null>(null);
-  const phrases = units.flatMap((unit, index) =>
-    unit.phrases.map((phrase) => ({
-      ...phrase,
-      unitLabel: `${unit.unitLabel ?? `Unit ${index + 1}`}: ${unit.title}`,
-    })),
+  const phrases = useMemo(
+    () =>
+      units.flatMap((unit, index) =>
+        unit.phrases.map((phrase) => ({
+          ...phrase,
+          unitLabel: `${unit.unitLabel ?? `Unit ${index + 1}`}: ${unit.title}`,
+        })),
+      ),
+    [units],
+  );
+  const normalizedPhraseQuery = normalizeSearchText(phraseQuery);
+  const filteredPhrases = useMemo(
+    () =>
+      phrases.filter((phrase) => {
+        if (!normalizedPhraseQuery) {
+          return true;
+        }
+
+        const searchable = normalizeSearchText(
+          `${phrase.dholuo} ${phrase.english} ${phrase.category} ${phrase.usage} ${phrase.unitLabel}`,
+        );
+        return searchable.includes(normalizedPhraseQuery);
+      }),
+    [normalizedPhraseQuery, phrases],
   );
   const recordedCount = phrases.filter((phrase) => hasAudioForKey(phrase.audioKey)).length;
+  const filteredRecordedCount = filteredPhrases.filter((phrase) => hasAudioForKey(phrase.audioKey)).length;
 
   useEffect(
     () => () => {
@@ -1169,8 +1190,46 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
         </View>
       </View>
 
+      <View style={styles.phrasebookSearchCard}>
+        <View style={[styles.phrasebookSearchHeader, !isWide && styles.phrasebookSearchHeaderCompact]}>
+          <View style={styles.phrasebookSearchCopy}>
+            <Text style={styles.cardLabel}>Search Phrases</Text>
+            <Text style={styles.phrasebookSearchHint}>
+              Find Luo phrases by word, English meaning, unit, or category.
+            </Text>
+          </View>
+          <Text style={styles.phrasebookSearchCount}>
+            {filteredPhrases.length} match{filteredPhrases.length === 1 ? '' : 'es'} · {filteredRecordedCount} playable
+          </Text>
+        </View>
+        <View style={styles.phrasebookSearchRow}>
+          <TextInput
+            accessibilityLabel="Search Luo101 phrases"
+            autoCapitalize="none"
+            autoCorrect={false}
+            onChangeText={setPhraseQuery}
+            placeholder="Search phrases, e.g. omena, arrived, mama"
+            placeholderTextColor="#7A8A82"
+            style={styles.phrasebookInput}
+            value={phraseQuery}
+          />
+          {phraseQuery ? (
+            <Pressable accessibilityRole="button" onPress={() => setPhraseQuery('')} style={styles.phrasebookClearButton}>
+              <Text style={styles.phrasebookClearText}>Clear</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+
+      {filteredPhrases.length === 0 ? (
+        <View style={styles.phrasebookEmptyState}>
+          <Text style={styles.phrasebookEmptyTitle}>No phrase found</Text>
+          <Text style={styles.phrasebookEmptyText}>Try a Luo word, an English meaning, a category, or a unit title.</Text>
+        </View>
+      ) : null}
+
       <View style={[styles.phraseGrid, isWide && styles.phraseGridWide]}>
-        {phrases.map((phrase) => {
+        {filteredPhrases.map((phrase) => {
           const audio = getAudioForKey(phrase.audioKey);
           const isPlaying = playingAudioKey === phrase.audioKey;
           const hasError = audioErrorKey === phrase.audioKey;
@@ -2795,6 +2854,97 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '900',
     textTransform: 'uppercase',
+  },
+  phrasebookSearchCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    padding: 16,
+  },
+  phrasebookSearchHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  phrasebookSearchHeaderCompact: {
+    flexDirection: 'column',
+  },
+  phrasebookSearchCopy: {
+    flex: 1,
+  },
+  phrasebookSearchHint: {
+    color: '#6E7C75',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  phrasebookSearchCount: {
+    backgroundColor: '#E4F2EE',
+    borderRadius: 8,
+    color: '#0E6B4F',
+    flexShrink: 0,
+    fontSize: 12,
+    fontWeight: '900',
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    textTransform: 'uppercase',
+  },
+  phrasebookSearchRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+  },
+  phrasebookInput: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#CFE0C9',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#10251B',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+    minHeight: 48,
+    paddingHorizontal: 14,
+  },
+  phrasebookClearButton: {
+    alignItems: 'center',
+    backgroundColor: '#C1562E',
+    borderRadius: 8,
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  phrasebookClearText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  phrasebookEmptyState: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 20,
+  },
+  phrasebookEmptyTitle: {
+    color: '#10251B',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  phrasebookEmptyText: {
+    color: '#6E7C75',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+    marginTop: 5,
+    textAlign: 'center',
   },
   phraseGrid: {
     gap: 14,

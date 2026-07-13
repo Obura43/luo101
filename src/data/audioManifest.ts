@@ -206,6 +206,7 @@ export const audioManifest: Record<string, AudioManifestItem> = {
   "omena-abich": { source: require("../../assets/audio/omena abich.ogg"), file: "assets/audio/omena abich.ogg", label: "Omena abich." },
   "omena-adek": { source: require("../../assets/audio/omena adek.ogg"), file: "assets/audio/omena adek.ogg", label: "Omena adek." },
   "omena-apar": { source: require("../../assets/audio/omena apar.ogg"), file: "assets/audio/omena apar.ogg", label: "Omena apar." },
+  "omena-apar-gariyo": { source: require("../../assets/audio/omena apar ga ariyo.ogg"), file: "assets/audio/omena apar ga ariyo.ogg", label: "Omena apar gariyo." },
   "omena-ariyo": { source: require("../../assets/audio/omena ariyo.ogg"), file: "assets/audio/omena ariyo.ogg", label: "Omena ariyo." },
   "omena-piero-ariyo": { source: require("../../assets/audio/omena piero ariyo.ogg"), file: "assets/audio/omena piero ariyo.ogg", label: "Omena piero ariyo." },
   "oriti": { source: require("../../assets/audio/oriti.ogg"), file: "assets/audio/oriti.ogg", label: "Oriti." },
