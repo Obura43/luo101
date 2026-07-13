@@ -122,9 +122,11 @@ export default function App() {
   const [authEmail, setAuthEmail] = useState('');
   const [authEmailConfirm, setAuthEmailConfirm] = useState('');
   const [authPassword, setAuthPassword] = useState('');
+  const [authPasswordConfirm, setAuthPasswordConfirm] = useState('');
   const [authDisplayName, setAuthDisplayName] = useState('');
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
   const [authMessage, setAuthMessage] = useState('');
+  const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
 
   const unitIndex = Math.max(
@@ -214,6 +216,17 @@ export default function App() {
 
     void loadCloudProfile(session);
   }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!session || !pendingAuthAction) {
+      return;
+    }
+
+    const action = pendingAuthAction;
+    setPendingAuthAction(null);
+    setAuthMessage('You are signed in. Continuing where you left off.');
+    action();
+  }, [pendingAuthAction, session?.user.id]);
 
   useEffect(() => {
     if (!session) {
@@ -328,6 +341,7 @@ export default function App() {
     const email = authEmail.trim().toLowerCase();
     const emailConfirm = authEmailConfirm.trim().toLowerCase();
     const password = authPassword.trim();
+    const passwordConfirm = authPasswordConfirm.trim();
 
     if (!email || !password) {
       setAuthMessage('Add an email and password first.');
@@ -336,6 +350,11 @@ export default function App() {
 
     if (authMode === 'sign-up' && email !== emailConfirm) {
       setAuthMessage('The two email addresses must match.');
+      return;
+    }
+
+    if (authMode === 'sign-up' && password !== passwordConfirm) {
+      setAuthMessage('The two passwords must match.');
       return;
     }
 
@@ -358,6 +377,7 @@ export default function App() {
       if (activeSession) {
         setSession(activeSession);
         setAuthPassword('');
+        setAuthPasswordConfirm('');
         setAuthMessage('Profile created. You are signed in.');
         return;
       }
@@ -371,6 +391,7 @@ export default function App() {
 
       setSession(signInResult.data.session);
       setAuthPassword('');
+      setAuthPasswordConfirm('');
       setAuthMessage('Profile created. You are signed in.');
       return;
     }
@@ -384,6 +405,7 @@ export default function App() {
 
     setSession(result.data.session);
     setAuthPassword('');
+    setAuthPasswordConfirm('');
     setAuthMessage('Signed in.');
   }
 
@@ -411,6 +433,18 @@ export default function App() {
     setProfileName(nextName);
     setAuthMessage('Profile name saved.');
   }
+  function requireProfile(action: () => void, message = 'Create your Luo101 profile to start lessons, play audio, and save your progress as you learn Dholuo.') {
+    if (session) {
+      action();
+      return;
+    }
+
+    setAuthMode('sign-up');
+    setAuthMessage(message);
+    setPendingAuthAction(() => action);
+    setTab('profile');
+  }
+
   function updateUnitProgress(updater: (current: UnitProgress) => UnitProgress) {
     setUnitProgressById((current) => ({
       ...current,
@@ -509,10 +543,10 @@ export default function App() {
             nextUnitLabel={nextUnitLabel}
             selectedUnitId={selectedUnitId}
             unitProgressById={unitProgressById}
-            onContinueUnit={goToNextUnit}
-            onRestart={() => restartUnit('lesson')}
+            onContinueUnit={() => requireProfile(goToNextUnit)}
+            onRestart={() => requireProfile(() => restartUnit('lesson'))}
             onSelectUnit={selectUnit}
-            onStart={() => setTab('lesson')}
+            onStart={() => requireProfile(() => setTab('lesson'))}
           />
         ) : null}
         {tab === 'review' ? (
@@ -532,7 +566,7 @@ export default function App() {
             onPracticeAgain={() => restartUnit('practice')}
           />
         ) : null}
-        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => setTab('practice')} /> : null}
+        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => requireProfile(() => setTab('practice'))} /> : null}
         {tab === 'practice' ? (
           <PracticeScreen
             exercise={exercise}
@@ -542,13 +576,19 @@ export default function App() {
             hasAnswered={hasAnswered}
             isCorrect={isCorrect}
             unit={unit}
-            onSelect={setSelected}
-            onBuild={(tile) => setBuilt((current) => [...current, tile])}
+            onSelect={(value) => requireProfile(() => setSelected(value), 'Create your Luo101 profile to answer drills and save your progress.')}
+            onBuild={(tile) => requireProfile(() => setBuilt((current) => [...current, tile]), 'Create your Luo101 profile to answer drills and save your progress.')}
             onClear={() => setBuilt([])}
-            onContinue={continueLesson}
+            onContinue={() => requireProfile(continueLesson, 'Create your Luo101 profile to answer drills and save your progress.')}
           />
         ) : null}
-        {tab === 'phrases' ? <PhrasebookScreen units={learningUnits} /> : null}
+        {tab === 'phrases' ? (
+          <PhrasebookScreen
+            units={learningUnits}
+            session={session}
+            onRequireProfile={() => requireProfile(() => setTab('phrases'), 'Create your Luo101 profile to play phrase audio and keep practicing Dholuo.')}
+          />
+        ) : null}
         {tab === 'profile' ? (
           <ProfileScreen
             authDisplayName={authDisplayName}
@@ -557,6 +597,7 @@ export default function App() {
             authMessage={authMessage}
             authMode={authMode}
             authPassword={authPassword}
+            authPasswordConfirm={authPasswordConfirm}
             completedRounds={completedRounds}
             isCloudConfigured={isSupabaseConfigured}
             lessonProgress={lessonProgress}
@@ -574,6 +615,7 @@ export default function App() {
             onAuthEmailConfirmChange={setAuthEmailConfirm}
             onAuthModeChange={setAuthMode}
             onAuthPasswordChange={setAuthPassword}
+            onAuthPasswordConfirmChange={setAuthPasswordConfirm}
             onAuthSubmit={handleAuthSubmit}
             onSaveProfileName={handleSaveProfileName}
             onSelectUnit={selectUnit}
@@ -1363,7 +1405,15 @@ function PracticeScreen({
   );
 }
 
-function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
+function PhrasebookScreen({
+  units,
+  session,
+  onRequireProfile,
+}: {
+  units: LearningUnit[];
+  session: Session | null;
+  onRequireProfile: () => void;
+}) {
   const { width } = useWindowDimensions();
   const isWide = width >= 920;
   const [playingAudioKey, setPlayingAudioKey] = useState<string | null>(null);
@@ -1407,6 +1457,11 @@ function PhrasebookScreen({ units }: { units: LearningUnit[] }) {
   );
 
   function playPhraseAudio(audioKey: string) {
+    if (!session) {
+      onRequireProfile();
+      return;
+    }
+
     const audio = getAudioForKey(audioKey);
 
     if (!audio) {
@@ -1554,6 +1609,7 @@ function ProfileScreen({
   authMessage,
   authMode,
   authPassword,
+  authPasswordConfirm,
   completedRounds,
   isCloudConfigured,
   lessonProgress,
@@ -1571,6 +1627,7 @@ function ProfileScreen({
   onAuthEmailConfirmChange,
   onAuthModeChange,
   onAuthPasswordChange,
+  onAuthPasswordConfirmChange,
   onAuthSubmit,
   onSaveProfileName,
   onSelectUnit,
@@ -1583,6 +1640,7 @@ function ProfileScreen({
   authMessage: string;
   authMode: 'sign-in' | 'sign-up';
   authPassword: string;
+  authPasswordConfirm: string;
   completedRounds: number;
   isCloudConfigured: boolean;
   lessonProgress: number;
@@ -1600,6 +1658,7 @@ function ProfileScreen({
   onAuthEmailConfirmChange: (value: string) => void;
   onAuthModeChange: (value: 'sign-in' | 'sign-up') => void;
   onAuthPasswordChange: (value: string) => void;
+  onAuthPasswordConfirmChange: (value: string) => void;
   onAuthSubmit: () => void;
   onSaveProfileName: () => void;
   onSelectUnit: (unitId: string, nextTab?: Tab) => void;
@@ -1696,6 +1755,18 @@ function ProfileScreen({
                 style={styles.profileInput}
                 value={authPassword}
               />
+              {authMode === 'sign-up' ? (
+                <TextInput
+                  accessibilityLabel="Confirm password"
+                  autoCapitalize="none"
+                  onChangeText={onAuthPasswordConfirmChange}
+                  placeholder="Type password again"
+                  placeholderTextColor="#7A8A82"
+                  secureTextEntry
+                  style={styles.profileInput}
+                  value={authPasswordConfirm}
+                />
+              ) : null}
               <Pressable
                 accessibilityRole="button"
                 disabled={!isCloudConfigured}
@@ -3899,4 +3970,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+
+
+
 
