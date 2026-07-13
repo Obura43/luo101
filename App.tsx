@@ -27,6 +27,14 @@ import { isSupabaseConfigured, supabase } from './src/lib/supabase';
 const brandLogo = require('./assets/luo101-logo-transparent.png');
 
 type Tab = 'learn' | 'lesson' | 'practice' | 'review' | 'phrases' | 'profile';
+type PublicPageId = 'vision' | 'mission' | 'privacy' | 'terms' | 'refunds' | 'contact' | 'payments';
+type PublicPage = {
+  id: PublicPageId;
+  title: string;
+  eyebrow: string;
+  intro: string;
+  sections: Array<{ heading: string; body: string }>;
+};
 type UnitProgress = {
   correctExerciseIds: string[];
   mistakes: number;
@@ -65,6 +73,88 @@ const defaultUnitProgress: UnitProgress = {
   mistakes: 0,
   completedRounds: 0,
   reviewCompleted: false,
+};
+const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
+  vision: {
+    id: 'vision',
+    eyebrow: 'Vision',
+    title: 'A living Dholuo for the next generation',
+    intro: 'Luo101 exists so learners can meet Dholuo as a living language: useful, warm, spoken, and connected to culture.',
+    sections: [
+      { heading: 'Our vision', body: 'We imagine a world where Luo children, families, friends, and curious learners can confidently learn Dholuo wherever they live, and carry the language into daily speech, family memory, music, stories, humor, and belonging.' },
+      { heading: 'Culture first', body: 'Luo101 is not only a vocabulary app. It is a preservation project built around greetings, family language, food, places, stories, romance, conversation, and the small phrases that keep a community close.' },
+      { heading: 'Designed to grow', body: 'The course will keep expanding with native-speaker review, recorded audio, richer readings, and more everyday situations so the language remains accurate, useful, and alive.' },
+    ],
+  },
+  mission: {
+    id: 'mission',
+    eyebrow: 'Mission',
+    title: 'Learn Dholuo. Speak it. Pass it on.',
+    intro: 'Our mission is to make Dholuo learning simple enough to begin today and deep enough to keep using for life.',
+    sections: [
+      { heading: 'Teach before testing', body: 'Each unit introduces meaning, context, and patterns before asking learners to practice. Luo101 should feel like being guided into speech, not dropped into a quiz.' },
+      { heading: 'Honor real speech', body: 'We prioritize phrases a learner can actually say to parents, grandparents, relatives, friends, sellers, teachers, and loved ones. Audio from fluent speakers is central to the learning experience.' },
+      { heading: 'Preserve with dignity', body: 'The app presents Dholuo as premium, beautiful, and worth protecting. Every lesson should help a learner speak with confidence while respecting the culture behind the words.' },
+    ],
+  },
+  privacy: {
+    id: 'privacy',
+    eyebrow: 'Privacy Policy',
+    title: 'How Luo101 handles learner information',
+    intro: 'This first version explains the data Luo101 expects to use as we prepare accounts, progress sync, and payments.',
+    sections: [
+      { heading: 'Information we collect', body: 'We may collect your email address, display name, password-managed account details through Supabase, lesson progress, XP, streaks, selected units, phrase activity, payment status, and support messages you send us.' },
+      { heading: 'How we use it', body: 'We use this information to create your account, save progress, unlock purchased course access, improve learning content, respond to support requests, and protect the service from misuse.' },
+      { heading: 'Payments', body: 'Payments are processed by third-party providers such as M-Pesa or card processors. Luo101 should store payment status and references, but not full card numbers or sensitive card security details.' },
+      { heading: 'Your choices', body: 'You can contact Luo101 support to ask about your account data, request help with access, or request deletion where legally and technically possible.' },
+    ],
+  },
+  terms: {
+    id: 'terms',
+    eyebrow: 'Terms of Service',
+    title: 'The basic rules for using Luo101',
+    intro: 'These terms keep expectations clear before we add paid course access.',
+    sections: [
+      { heading: 'Accounts', body: 'You are responsible for keeping your login details secure and for using Luo101 in a lawful, respectful way. Course progress and access are tied to your account.' },
+      { heading: 'Course access', body: 'Free visitors may explore parts of Luo101. Paid access, when enabled, will unlock the full course features described at purchase, subject to availability and fair use.' },
+      { heading: 'Content ownership', body: 'Lessons, phrase collections, text, audio, branding, and course structure belong to Luo101 or its contributors unless otherwise stated. Learners may use the content for personal learning, not resale or copying into another product.' },
+      { heading: 'Service changes', body: 'We may improve, correct, add, or remove features as Luo101 grows, especially as the curriculum is reviewed by fluent speakers and more audio is added.' },
+    ],
+  },
+  refunds: {
+    id: 'refunds',
+    eyebrow: 'Refund Policy',
+    title: 'Fair refunds for paid access',
+    intro: 'This policy should be simple, visible, and learner-friendly before purchases go live.',
+    sections: [
+      { heading: 'Suggested refund window', body: 'For the first paid version, Luo101 can offer refunds within 7 days of purchase when a learner cannot access the course, paid by mistake, or is not satisfied after trying it lightly.' },
+      { heading: 'When refunds may be limited', body: 'Refunds may be declined where there is heavy course usage, repeated refund abuse, or where a payment provider or app store policy controls the refund process.' },
+      { heading: 'How to request help', body: 'Learners should contact support with the account email, payment reference, payment method, and a short explanation so the purchase can be found quickly.' },
+    ],
+  },
+  contact: {
+    id: 'contact',
+    eyebrow: 'Contact',
+    title: 'Support for learners and families',
+    intro: 'A clear contact page gives learners confidence before creating an account or paying for the course.',
+    sections: [
+      { heading: 'Support email', body: 'Use a dedicated support address such as support@luo101.org for account access, payment issues, refunds, corrections, and audio/content feedback.' },
+      { heading: 'What to include', body: 'For faster help, include your account email, the unit or phrase involved, your payment reference if relevant, your device/browser, and a short description of the issue.' },
+      { heading: 'Language feedback', body: 'Fluent speakers are invited to help improve wording, dialect notes, and audio quality. Luo101 should keep correction pathways open as the course grows.' },
+    ],
+  },
+  payments: {
+    id: 'payments',
+    eyebrow: 'Payments & Billing',
+    title: 'How paid Luo101 access will work',
+    intro: 'This page prepares learners for M-Pesa and card payments without exposing sensitive payment details inside Luo101.',
+    sections: [
+      { heading: 'Payment methods', body: 'Luo101 plans to support M-Pesa payments and card payments such as Visa or Mastercard, using secure third-party payment providers.' },
+      { heading: 'Access after payment', body: 'After a successful payment, Luo101 will save an entitlement on your account so lessons, practice, phrase audio, and progress features can unlock for that learner.' },
+      { heading: 'Security', body: 'Payment providers handle sensitive payment details. Luo101 should only store references, status, amount, provider name, and the account connected to the purchase.' },
+      { heading: 'Payment help', body: 'If a payment succeeds but access does not unlock, contact support with your account email and transaction reference so the purchase can be checked.' },
+    ],
+  },
 };
 
 function getStorage() {
@@ -110,6 +200,8 @@ export default function App() {
   const isCompactShell = width < 720;
   const savedProgress = useMemo(() => readProgress(), []);
   const [tab, setTab] = useState<Tab>('learn');
+  const [publicPageId, setPublicPageId] = useState<PublicPageId | null>(null);
+  const [isPublicMenuOpen, setIsPublicMenuOpen] = useState(false);
   const [exerciseIndex, setExerciseIndex] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [built, setBuilt] = useState<string[]>([]);
@@ -442,7 +534,7 @@ export default function App() {
     setAuthMode('sign-up');
     setAuthMessage(message);
     setPendingAuthAction(() => action);
-    setTab('profile');
+    openTab('profile');
   }
 
   function updateUnitProgress(updater: (current: UnitProgress) => UnitProgress) {
@@ -458,6 +550,16 @@ export default function App() {
     setBuilt([]);
   }
 
+  function openTab(nextTab: Tab) {
+    setPublicPageId(null);
+    setTab(nextTab);
+  }
+
+  function openPublicPage(pageId: PublicPageId) {
+    setPublicPageId(pageId);
+    setIsPublicMenuOpen(false);
+  }
+
   function restartUnit(startTab: Tab) {
     updateUnitProgress((current) => ({
       ...current,
@@ -466,7 +568,7 @@ export default function App() {
       reviewCompleted: false,
     }));
     resetExercise(0);
-    setTab(startTab);
+    openTab(startTab);
   }
 
   function goToNextUnit() {
@@ -479,7 +581,7 @@ export default function App() {
 
   function selectUnit(unitId: string, nextTab: Tab = 'learn') {
     setSelectedUnitId(unitId);
-    setTab(nextTab);
+    openTab(nextTab);
   }
 
   function continueLesson() {
@@ -502,7 +604,7 @@ export default function App() {
 
     if (nextCorrectIds.length === unit.exercises.length) {
       resetExercise(0);
-      setTab('review');
+      openTab('review');
       return;
     }
 
@@ -530,6 +632,10 @@ export default function App() {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+        {publicPageId ? (
+          <PublicPageScreen page={PUBLIC_PAGES[publicPageId]} onBack={() => openTab(tab)} />
+        ) : (
+          <>
         {tab === 'learn' ? (
           <LearnScreen
             completedRounds={completedRounds}
@@ -546,7 +652,7 @@ export default function App() {
             onContinueUnit={() => requireProfile(goToNextUnit)}
             onRestart={() => requireProfile(() => restartUnit('lesson'))}
             onSelectUnit={selectUnit}
-            onStart={() => requireProfile(() => setTab('lesson'))}
+            onStart={() => requireProfile(() => openTab('lesson'))}
           />
         ) : null}
         {tab === 'review' ? (
@@ -561,12 +667,12 @@ export default function App() {
                 reviewCompleted: true,
               }));
               setStreak((current) => current + 1);
-              setTab('learn');
+              openTab('learn');
             }}
             onPracticeAgain={() => restartUnit('practice')}
           />
         ) : null}
-        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => requireProfile(() => setTab('practice'))} /> : null}
+        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => requireProfile(() => openTab('practice'))} /> : null}
         {tab === 'practice' ? (
           <PracticeScreen
             exercise={exercise}
@@ -586,7 +692,7 @@ export default function App() {
           <PhrasebookScreen
             units={learningUnits}
             session={session}
-            onRequireProfile={() => requireProfile(() => setTab('phrases'), 'Create your Luo101 profile to play phrase audio and keep practicing Dholuo.')}
+            onRequireProfile={() => requireProfile(() => openTab('phrases'), 'Create your Luo101 profile to play phrase audio and keep practicing Dholuo.')}
           />
         ) : null}
         {tab === 'profile' ? (
@@ -623,13 +729,21 @@ export default function App() {
             onSyncNow={() => syncProgressToCloud()}
           />
         ) : null}
+          </>
+        )}
+        <PublicLinksMenu
+          activePageId={publicPageId}
+          isOpen={isPublicMenuOpen}
+          onOpenPage={openPublicPage}
+          onToggle={() => setIsPublicMenuOpen((current) => !current)}
+        />
       </ScrollView>
 
       <View style={styles.nav}>
-        <NavButton label="Learn" active={tab === 'learn'} onPress={() => setTab('learn')} />
-        <NavButton label="Practice" active={tab === 'practice' || tab === 'lesson' || tab === 'review'} onPress={() => setTab('lesson')} />
-        <NavButton label="Phrases" active={tab === 'phrases'} onPress={() => setTab('phrases')} />
-        <NavButton label="Profile" active={tab === 'profile'} onPress={() => setTab('profile')} />
+        <NavButton label="Learn" active={!publicPageId && tab === 'learn'} onPress={() => openTab('learn')} />
+        <NavButton label="Practice" active={!publicPageId && (tab === 'practice' || tab === 'lesson' || tab === 'review')} onPress={() => openTab('lesson')} />
+        <NavButton label="Phrases" active={!publicPageId && tab === 'phrases'} onPress={() => openTab('phrases')} />
+        <NavButton label="Profile" active={!publicPageId && tab === 'profile'} onPress={() => openTab('profile')} />
       </View>
     </SafeAreaView>
   );
@@ -1990,6 +2104,70 @@ function UnitProgressList({
   );
 }
 
+
+function PublicPageScreen({ page, onBack }: { page: PublicPage; onBack: () => void }) {
+  return (
+    <View style={styles.publicPage}>
+      <Pressable accessibilityRole="button" onPress={onBack} style={styles.publicBackButton}>
+        <Text style={styles.publicBackText}>Back to Luo101</Text>
+      </Pressable>
+      <View style={styles.publicHero}>
+        <Text style={styles.kickerOnDark}>{page.eyebrow}</Text>
+        <Text style={styles.publicTitle}>{page.title}</Text>
+        <Text style={styles.publicIntro}>{page.intro}</Text>
+      </View>
+      <View style={styles.publicSectionList}>
+        {page.sections.map((section) => (
+          <View key={section.heading} style={styles.publicSectionCard}>
+            <Text style={styles.publicSectionTitle}>{section.heading}</Text>
+            <Text style={styles.publicSectionText}>{section.body}</Text>
+          </View>
+        ))}
+      </View>
+      <Text style={styles.publicFinePrint}>Last updated: July 13, 2026. These pages are a practical first version and should be reviewed before payments go live.</Text>
+    </View>
+  );
+}
+
+function PublicLinksMenu({
+  activePageId,
+  isOpen,
+  onOpenPage,
+  onToggle,
+}: {
+  activePageId: PublicPageId | null;
+  isOpen: boolean;
+  onOpenPage: (pageId: PublicPageId) => void;
+  onToggle: () => void;
+}) {
+  const pages = Object.values(PUBLIC_PAGES);
+
+  return (
+    <View style={styles.publicMenuCard}>
+      <Pressable accessibilityRole="button" onPress={onToggle} style={styles.publicMenuHeader}>
+        <View>
+          <Text style={styles.cardLabel}>About & Legal</Text>
+          <Text style={styles.publicMenuTitle}>Trust pages for Luo101</Text>
+        </View>
+        <Text style={styles.publicMenuToggle}>{isOpen ? 'Close' : 'Open'}</Text>
+      </Pressable>
+      {isOpen ? (
+        <View style={styles.publicMenuGrid}>
+          {pages.map((page) => (
+            <Pressable
+              accessibilityRole="button"
+              key={page.id}
+              onPress={() => onOpenPage(page.id)}
+              style={[styles.publicMenuLink, activePageId === page.id && styles.publicMenuLinkActive]}
+            >
+              <Text style={[styles.publicMenuLinkText, activePageId === page.id && styles.publicMenuLinkTextActive]}>{page.eyebrow}</Text>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.stat}>
@@ -3935,7 +4113,126 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     textTransform: 'uppercase',
   },
-  nav: {
+  publicPage: {
+    gap: 14,
+  },
+  publicBackButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  publicBackText: {
+    color: '#0E6B4F',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  publicHero: {
+    backgroundColor: '#0E6B4F',
+    borderRadius: 8,
+    padding: 22,
+  },
+  publicTitle: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+    marginTop: 8,
+  },
+  publicIntro: {
+    color: '#D9F5E9',
+    fontSize: 16,
+    fontWeight: '700',
+    lineHeight: 23,
+    marginTop: 8,
+  },
+  publicSectionList: {
+    gap: 10,
+  },
+  publicSectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+  },
+  publicSectionTitle: {
+    color: '#10251B',
+    fontSize: 18,
+    fontWeight: '900',
+    marginBottom: 6,
+  },
+  publicSectionText: {
+    color: '#40514A',
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  publicFinePrint: {
+    color: '#6E7C75',
+    fontSize: 12,
+    fontWeight: '700',
+    lineHeight: 18,
+  },
+  publicMenuCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 18,
+    padding: 14,
+  },
+  publicMenuHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+  },
+  publicMenuTitle: {
+    color: '#10251B',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  publicMenuToggle: {
+    backgroundColor: '#0E6B4F',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '900',
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    textTransform: 'uppercase',
+  },
+  publicMenuGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 14,
+  },
+  publicMenuLink: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  publicMenuLinkActive: {
+    backgroundColor: '#0E6B4F',
+    borderColor: '#0E6B4F',
+  },
+  publicMenuLinkText: {
+    color: '#40514A',
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  publicMenuLinkTextActive: {
+    color: '#FFFFFF',
+  },  nav: {
     backgroundColor: 'rgba(255, 255, 255, 0.96)',
     borderTopColor: '#DDE8D8',
     borderTopWidth: 1,
@@ -3970,6 +4267,8 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
+
+
 
 
 
