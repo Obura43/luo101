@@ -35,6 +35,15 @@ type PublicPage = {
   intro: string;
   sections: Array<{ heading: string; body: string }>;
 };
+type EntitlementTier = 'none' | 'basic' | 'full' | 'consultation';
+type CoursePackage = {
+  id: 'basic' | 'full' | 'consultation';
+  title: string;
+  priceKes: number;
+  tier: EntitlementTier;
+  summary: string;
+  unlocks: string[];
+};
 type UnitProgress = {
   correctExerciseIds: string[];
   mistakes: number;
@@ -74,6 +83,35 @@ const defaultUnitProgress: UnitProgress = {
   completedRounds: 0,
   reviewCompleted: false,
 };
+
+const PAYMENT_PACKAGES: CoursePackage[] = [
+  {
+    id: 'basic',
+    title: 'Basic Course',
+    priceKes: 799,
+    tier: 'basic',
+    summary: 'Start strong with the core beginner path.',
+    unlocks: ['Units 1-4', 'Starter practice', 'Starter phrase audio'],
+  },
+  {
+    id: 'full',
+    title: 'Full Course',
+    priceKes: 1500,
+    tier: 'full',
+    summary: 'Unlock the complete Luo101 self-paced course.',
+    unlocks: ['All units', 'All practice', 'Phrase audio', 'Dictionary and readings'],
+  },
+  {
+    id: 'consultation',
+    title: 'Full Course + Live Consultation',
+    priceKes: 6000,
+    tier: 'consultation',
+    summary: 'Learn everything, then get personal support.',
+    unlocks: ['Everything in Full Course', 'Live consultation', 'Manual support via support@luo101.org'],
+  },
+];
+
+const BASIC_UNLOCKED_UNIT_COUNT = 4;
 const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
   vision: {
     id: 'vision',
@@ -219,6 +257,11 @@ export default function App() {
   const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
   const [authMessage, setAuthMessage] = useState('');
   const [pendingAuthAction, setPendingAuthAction] = useState<(() => void) | null>(null);
+  const [entitlementTier, setEntitlementTier] = useState<EntitlementTier>('none');
+  const [paymentPhone, setPaymentPhone] = useState('');
+  const [selectedPaymentPackageId, setSelectedPaymentPackageId] = useState<CoursePackage['id']>('full');
+  const [paymentMessage, setPaymentMessage] = useState('Choose a course package and pay securely with M-Pesa.');
+  const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
 
   const unitIndex = Math.max(
@@ -310,6 +353,15 @@ export default function App() {
   }, [session?.user.id]);
 
   useEffect(() => {
+    if (!session) {
+      setEntitlementTier('none');
+      return;
+    }
+
+    void loadEntitlement(session);
+  }, [session?.user.id]);
+
+  useEffect(() => {
     if (!session || !pendingAuthAction) {
       return;
     }
@@ -351,6 +403,46 @@ export default function App() {
     setSelectedUnitId(progress.selectedUnitId || learningUnits[0].id);
     setUnitProgressById(progress.units ?? {});
     writeProgress(progress);
+  }
+
+  function getUnitIndex(unitId: string) {
+    return learningUnits.findIndex((item) => item.id === unitId);
+  }
+
+  function canAccessUnit(unitId: string, tier = entitlementTier) {
+    if (tier === 'full' || tier === 'consultation') {
+      return true;
+    }
+
+    if (tier === 'basic') {
+      const index = getUnitIndex(unitId);
+      return index >= 0 && index < BASIC_UNLOCKED_UNIT_COUNT;
+    }
+
+    return false;
+  }
+
+  async function loadEntitlement(activeSession = session) {
+    if (!activeSession) {
+      setEntitlementTier('none');
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('user_entitlements')
+      .select('tier, live_consultation_included, updated_at')
+      .eq('user_id', activeSession.user.id)
+      .maybeSingle<{ tier: EntitlementTier; live_consultation_included: boolean; updated_at: string }>();
+
+    if (error) {
+      setPaymentMessage('Payment access will appear here after setup: ' + error.message);
+      return;
+    }
+
+    setEntitlementTier(data?.tier ?? 'none');
+    if (data?.tier && data.tier !== 'none') {
+      setPaymentMessage('Your Luo101 access is active.');
+    }
   }
 
   async function loadCloudProfile(activeSession: Session) {
@@ -504,6 +596,7 @@ export default function App() {
   async function handleSignOut() {
     await supabase.auth.signOut();
     setSession(null);
+    setEntitlementTier('none');
     setAuthMessage('Signed out. Progress is still saved on this device.');
     setSyncStatus('Signed out.');
   }
@@ -525,6 +618,54 @@ export default function App() {
     setProfileName(nextName);
     setAuthMessage('Profile name saved.');
   }
+  async function startMpesaPayment() {
+    if (!session) {
+      requireProfile(() => openTab('profile'), 'Create your Luo101 profile before buying course access.');
+      return;
+    }
+
+    const selectedPackage = PAYMENT_PACKAGES.find((item) => item.id === selectedPaymentPackageId) ?? PAYMENT_PACKAGES[1];
+    setIsPaymentStarting(true);
+    setPaymentMessage('Sending M-Pesa prompt...');
+
+    const { data, error } = await supabase.functions.invoke('initiate-payhero-payment', {
+      body: {
+        package_id: selectedPackage.id,
+        phone_number: paymentPhone,
+        customer_name: profileName || authDisplayName || 'Luo101 Learner',
+      },
+    });
+
+    setIsPaymentStarting(false);
+
+    if (error) {
+      setPaymentMessage(error.message || 'Could not start M-Pesa payment.');
+      return;
+    }
+
+    const result = data as { message?: string; error?: string; external_reference?: string };
+    setPaymentMessage(result.error ?? result.message ?? 'M-Pesa prompt sent. Complete payment on your phone, then refresh access.');
+  }
+
+  function requireCourseAccess(action: () => void, unitId = unit.id) {
+    if (!session) {
+      requireProfile(() => requireCourseAccess(action, unitId), 'Create your Luo101 profile to buy course access and save your progress.');
+      return;
+    }
+
+    if (canAccessUnit(unitId)) {
+      action();
+      return;
+    }
+
+    const unitIndexForMessage = getUnitIndex(unitId);
+    const basicMessage = unitIndexForMessage >= BASIC_UNLOCKED_UNIT_COUNT
+      ? 'This unit is part of the Full Course. Choose Full Course or Consultation to continue.'
+      : 'Choose a Luo101 course package to unlock lessons, practice, and phrase audio.';
+    setPaymentMessage(basicMessage);
+    openTab('profile');
+  }
+
   function requireProfile(action: () => void, message = 'Create your Luo101 profile to start lessons, play audio, and save your progress as you learn Dholuo.') {
     if (session) {
       action();
@@ -617,16 +758,17 @@ export default function App() {
       <StatusBar style="dark" />
       <View style={styles.topBar}>
         <View style={[styles.topBarInner, isCompactShell && styles.topBarInnerCompact]}>
-          <View style={styles.brandLockup}>
+          <View style={[styles.brandLockup, isCompactShell && styles.brandLockupCompact]}>
             <Image
               source={brandLogo}
               style={[styles.brandLogo, isCompactShell && styles.brandLogoCompact]}
               resizeMode="contain"
             />
           </View>
-          <View style={styles.statsRow}>
-            <Stat label="XP" value={xp.toString()} />
-            <Stat label="Day" value={streak.toString()} />
+          <View style={[styles.headerProgress, isCompactShell && styles.headerProgressCompact]}>
+            <Text style={styles.headerProgressText}>{xp} XP</Text>
+            <Text style={styles.headerProgressDot}>.</Text>
+            <Text style={styles.headerProgressText}>{streak} day streak</Text>
           </View>
         </View>
       </View>
@@ -649,10 +791,10 @@ export default function App() {
             nextUnitLabel={nextUnitLabel}
             selectedUnitId={selectedUnitId}
             unitProgressById={unitProgressById}
-            onContinueUnit={() => requireProfile(goToNextUnit)}
-            onRestart={() => requireProfile(() => restartUnit('lesson'))}
+            onContinueUnit={() => requireCourseAccess(goToNextUnit, nextUnit?.id ?? unit.id)}
+            onRestart={() => requireCourseAccess(() => restartUnit('lesson'))}
             onSelectUnit={selectUnit}
-            onStart={() => requireProfile(() => openTab('lesson'))}
+            onStart={() => requireCourseAccess(() => openTab('lesson'))}
           />
         ) : null}
         {tab === 'review' ? (
@@ -669,10 +811,10 @@ export default function App() {
               setStreak((current) => current + 1);
               openTab('learn');
             }}
-            onPracticeAgain={() => restartUnit('practice')}
+            onPracticeAgain={() => requireCourseAccess(() => restartUnit('practice'))}
           />
         ) : null}
-        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => requireProfile(() => openTab('practice'))} /> : null}
+        {tab === 'lesson' ? <LessonScreen unit={unit} onBeginPractice={() => requireCourseAccess(() => openTab('practice'))} /> : null}
         {tab === 'practice' ? (
           <PracticeScreen
             exercise={exercise}
@@ -682,16 +824,18 @@ export default function App() {
             hasAnswered={hasAnswered}
             isCorrect={isCorrect}
             unit={unit}
-            onSelect={(value) => requireProfile(() => setSelected(value), 'Create your Luo101 profile to answer drills and save your progress.')}
-            onBuild={(tile) => requireProfile(() => setBuilt((current) => [...current, tile]), 'Create your Luo101 profile to answer drills and save your progress.')}
+            onSelect={(value) => requireCourseAccess(() => setSelected(value))}
+            onBuild={(tile) => requireCourseAccess(() => setBuilt((current) => [...current, tile]))}
             onClear={() => setBuilt([])}
-            onContinue={() => requireProfile(continueLesson, 'Create your Luo101 profile to answer drills and save your progress.')}
+            onContinue={() => requireCourseAccess(continueLesson)}
           />
         ) : null}
         {tab === 'phrases' ? (
           <PhrasebookScreen
             units={learningUnits}
             session={session}
+            canAccessUnit={(unitId) => canAccessUnit(unitId)}
+            onRequireUpgrade={(unitId) => requireCourseAccess(() => openTab('phrases'), unitId)}
             onRequireProfile={() => requireProfile(() => openTab('phrases'), 'Create your Luo101 profile to play phrase audio and keep practicing Dholuo.')}
           />
         ) : null}
@@ -728,6 +872,16 @@ export default function App() {
             onSignOut={handleSignOut}
             onSyncNow={() => syncProgressToCloud()}
             onOpenPublicPage={openPublicPage}
+            entitlementTier={entitlementTier}
+            paymentPackages={PAYMENT_PACKAGES}
+            paymentPhone={paymentPhone}
+            selectedPaymentPackageId={selectedPaymentPackageId}
+            paymentMessage={paymentMessage}
+            isPaymentStarting={isPaymentStarting}
+            onPaymentPhoneChange={setPaymentPhone}
+            onSelectedPaymentPackageChange={setSelectedPaymentPackageId}
+            onStartMpesaPayment={startMpesaPayment}
+            onRefreshEntitlement={() => loadEntitlement()}
           />
         ) : null}
           </>
@@ -1523,10 +1677,14 @@ function PracticeScreen({
 function PhrasebookScreen({
   units,
   session,
+  canAccessUnit,
+  onRequireUpgrade,
   onRequireProfile,
 }: {
   units: LearningUnit[];
   session: Session | null;
+  canAccessUnit: (unitId: string) => boolean;
+  onRequireUpgrade: (unitId: string) => void;
   onRequireProfile: () => void;
 }) {
   const { width } = useWindowDimensions();
@@ -1540,6 +1698,7 @@ function PhrasebookScreen({
       units.flatMap((unit, index) =>
         unit.phrases.map((phrase) => ({
           ...phrase,
+          unitId: unit.id,
           unitLabel: `${unit.unitLabel ?? `Unit ${index + 1}`}: ${unit.title}`,
         })),
       ),
@@ -1571,9 +1730,14 @@ function PhrasebookScreen({
     [],
   );
 
-  function playPhraseAudio(audioKey: string) {
+  function playPhraseAudio(audioKey: string, unitId: string) {
     if (!session) {
       onRequireProfile();
+      return;
+    }
+
+    if (!canAccessUnit(unitId)) {
+      onRequireUpgrade(unitId);
       return;
     }
 
@@ -1689,7 +1853,7 @@ function PhrasebookScreen({
                     audio ? `Play recording for ${phrase.dholuo}` : `Audio not recorded yet for ${phrase.dholuo}`
                   }
                   disabled={!audio}
-                  onPress={() => playPhraseAudio(phrase.audioKey)}
+                  onPress={() => playPhraseAudio(phrase.audioKey, phrase.unitId)}
                   style={[
                     styles.audioButton,
                     audio && styles.audioButtonReady,
@@ -1749,6 +1913,16 @@ function ProfileScreen({
   onSignOut,
   onSyncNow,
   onOpenPublicPage,
+  entitlementTier,
+  paymentPackages,
+  paymentPhone,
+  selectedPaymentPackageId,
+  paymentMessage,
+  isPaymentStarting,
+  onPaymentPhoneChange,
+  onSelectedPaymentPackageChange,
+  onStartMpesaPayment,
+  onRefreshEntitlement,
 }: {
   authDisplayName: string;
   authEmail: string;
@@ -1781,8 +1955,20 @@ function ProfileScreen({
   onSignOut: () => void;
   onSyncNow: () => void;
   onOpenPublicPage: (pageId: PublicPageId) => void;
+  entitlementTier: EntitlementTier;
+  paymentPackages: CoursePackage[];
+  paymentPhone: string;
+  selectedPaymentPackageId: CoursePackage['id'];
+  paymentMessage: string;
+  isPaymentStarting: boolean;
+  onPaymentPhoneChange: (value: string) => void;
+  onSelectedPaymentPackageChange: (packageId: CoursePackage['id']) => void;
+  onStartMpesaPayment: () => void;
+  onRefreshEntitlement: () => void;
 }) {
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProgressOpen, setIsProgressOpen] = useState(false);
+  const [isAccountOpen, setIsAccountOpen] = useState(false);
   const completedUnits = learningUnits.filter((item) => {
     const progress = unitProgressById[item.id];
     return progress?.reviewCompleted && progress.correctExerciseIds.length === item.exercises.length;
@@ -1800,33 +1986,40 @@ function ProfileScreen({
     return (
       <View>
         <Text style={styles.kicker}>Profile</Text>
-        <Text style={styles.screenTitle}>Create your Luo101 profile</Text>
-        <View style={styles.profileSignupBackdrop}>
-          <View style={styles.profileSignupModal}>
-            <Text style={styles.cardLabel}>Join Luo101</Text>
-            <Text style={styles.profileSignupTitle}>Join thousands of learners already learning and preserving the beautiful Luo language.</Text>
-            <Text style={styles.profileSignupText}>
-              Create your account to save XP, streaks, completed units, and review progress across devices.
-            </Text>
+        <Text style={styles.screenTitle}>Your Luo101 profile</Text>
+        <View style={styles.profileSignupCard}>
+          <Text style={styles.cardLabel}>Keep your learning with you</Text>
+          <Text style={styles.profileSignupTitle}>Join thousands of learners preserving the beautiful Luo language.</Text>
+          <Text style={styles.profileSignupText}>Create an account to save XP, streaks, completed units, and course access across devices.</Text>
+          <View style={styles.profileAuthChoices}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isAuthOpen && authMode === 'sign-up' }}
+              onPress={() => {
+                onAuthModeChange('sign-up');
+                setIsAuthOpen(true);
+              }}
+              style={[styles.profileFoldButton, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonActive]}
+            >
+              <Text style={[styles.profileFoldButtonText, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonTextActive]}>Sign Up</Text>
+              <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonTextActive]}>+</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isAuthOpen && authMode === 'sign-in' }}
+              onPress={() => {
+                onAuthModeChange('sign-in');
+                setIsAuthOpen(true);
+              }}
+              style={[styles.profileFoldButton, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonActive]}
+            >
+              <Text style={[styles.profileFoldButtonText, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonTextActive]}>Sign In</Text>
+              <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonTextActive]}>+</Text>
+            </Pressable>
+          </View>
 
-            <View style={styles.profileAccountForm}>
-              <View style={styles.profileModeSwitch}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => onAuthModeChange('sign-up')}
-                  style={[styles.profileModeButton, authMode === 'sign-up' && styles.profileModeButtonActive]}
-                >
-                  <Text style={[styles.profileModeText, authMode === 'sign-up' && styles.profileModeTextActive]}>Sign Up</Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => onAuthModeChange('sign-in')}
-                  style={[styles.profileModeButton, authMode === 'sign-in' && styles.profileModeButtonActive]}
-                >
-                  <Text style={[styles.profileModeText, authMode === 'sign-in' && styles.profileModeTextActive]}>Sign In</Text>
-                </Pressable>
-              </View>
-
+          {isAuthOpen ? (
+            <View style={styles.profileAuthPanel}>
               {authMode === 'sign-up' ? (
                 <TextInput
                   accessibilityLabel="Display name"
@@ -1892,10 +2085,23 @@ function ProfileScreen({
               >
                 <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
               </Pressable>
+              <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
             </View>
-            <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
-          </View>
+          ) : null}
         </View>
+        <PaymentUpgradeCard
+          entitlementTier={entitlementTier}
+          isPaymentStarting={isPaymentStarting}
+          packages={paymentPackages}
+          paymentMessage={paymentMessage}
+          paymentPhone={paymentPhone}
+          selectedPackageId={selectedPaymentPackageId}
+          session={session}
+          onPaymentPhoneChange={onPaymentPhoneChange}
+          onRefreshEntitlement={onRefreshEntitlement}
+          onSelectedPackageChange={onSelectedPaymentPackageChange}
+          onStartMpesaPayment={onStartMpesaPayment}
+        />
         <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
       </View>
     );
@@ -1916,6 +2122,20 @@ function ProfileScreen({
         </View>
       </View>
 
+      <PaymentUpgradeCard
+        entitlementTier={entitlementTier}
+        isPaymentStarting={isPaymentStarting}
+        packages={paymentPackages}
+        paymentMessage={paymentMessage}
+        paymentPhone={paymentPhone}
+        selectedPackageId={selectedPaymentPackageId}
+        session={session}
+        onPaymentPhoneChange={onPaymentPhoneChange}
+        onRefreshEntitlement={onRefreshEntitlement}
+        onSelectedPackageChange={onSelectedPaymentPackageChange}
+        onStartMpesaPayment={onStartMpesaPayment}
+      />
+
       <View style={styles.profileGrid}>
         <MetricCard label="Total XP" value={xp.toString()} />
         <MetricCard label="Streak" value={`${streak} days`} />
@@ -1923,47 +2143,10 @@ function ProfileScreen({
         <MetricCard label="Current Progress" value={`${progressPercent}%`} />
       </View>
 
-      <View style={styles.profileAccountCard}>
-        <View style={styles.profileAccountHeader}>
-          <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>{displayName.charAt(0).toUpperCase() || 'L'}</Text>
-          </View>
-          <View style={styles.profileAccountCopy}>
-            <Text style={styles.cardLabel}>Cloud Profile</Text>
-            <Text style={styles.profileAccountTitle}>{displayName}</Text>
-            <Text style={styles.profileAccountSubtext}>{session.user.email}</Text>
-          </View>
-        </View>
-        <View style={styles.profileAccountForm}>
-          <TextInput
-            accessibilityLabel="Display name"
-            autoCapitalize="words"
-            onChangeText={onAuthDisplayNameChange}
-            placeholder="Display name"
-            placeholderTextColor="#7A8A82"
-            style={styles.profileInput}
-            value={authDisplayName}
-          />
-          <View style={styles.profileActionRow}>
-            <Pressable accessibilityRole="button" onPress={onSaveProfileName} style={styles.profilePrimaryButton}>
-              <Text style={styles.profilePrimaryButtonText}>Save Name</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={onSyncNow} style={styles.profileSecondaryButton}>
-              <Text style={styles.profileSecondaryButtonText}>Sync Now</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.profileGhostButton}>
-              <Text style={styles.profileGhostButtonText}>Sign Out</Text>
-            </Pressable>
-          </View>
-        </View>
-        <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
-      </View>
-
-      <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
-
       <View style={styles.profileProgressCard}>
         <Pressable
           accessibilityRole="button"
+          accessibilityState={{ expanded: isProgressOpen }}
           onPress={() => setIsProgressOpen((current) => !current)}
           style={styles.profileProgressToggle}
         >
@@ -1981,11 +2164,177 @@ function ProfileScreen({
           />
         ) : null}
       </View>
+
+      <View style={styles.profileAccountCard}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isAccountOpen }}
+          onPress={() => setIsAccountOpen((current) => !current)}
+          style={styles.profileAccountSummary}
+        >
+          <View style={styles.profileCompactAvatar}>
+            <Text style={styles.profileAvatarText}>{displayName.charAt(0).toUpperCase() || 'L'}</Text>
+          </View>
+          <View style={styles.profileAccountCopy}>
+            <Text style={styles.cardLabel}>Account details</Text>
+            <Text style={styles.profileAccountTitle}>{displayName}</Text>
+            <Text style={styles.profileAccountSubtext}>{session.user.email}</Text>
+          </View>
+          <Text style={styles.profileAccountToggle}>{isAccountOpen ? 'Hide' : 'Edit'}</Text>
+        </Pressable>
+        {isAccountOpen ? (
+          <View style={styles.profileAccountForm}>
+            <TextInput
+              accessibilityLabel="Display name"
+              autoCapitalize="words"
+              onChangeText={onAuthDisplayNameChange}
+              placeholder="Display name"
+              placeholderTextColor="#7A8A82"
+              style={styles.profileInput}
+              value={authDisplayName}
+            />
+            <View style={styles.profileActionRow}>
+              <Pressable accessibilityRole="button" onPress={onSaveProfileName} style={styles.profilePrimaryButton}>
+                <Text style={styles.profilePrimaryButtonText}>Save Name</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onSyncNow} style={styles.profileSecondaryButton}>
+                <Text style={styles.profileSecondaryButtonText}>Sync Now</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
+
+      <View style={styles.profileSignOutRow}>
+        <Text style={styles.profileSignOutText}>Signed in as {session.user.email}</Text>
+        <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.profileGhostButton}>
+          <Text style={styles.profileGhostButtonText}>Sign Out</Text>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 
+
+function PaymentUpgradeCard({
+  entitlementTier,
+  isPaymentStarting,
+  packages,
+  paymentMessage,
+  paymentPhone,
+  selectedPackageId,
+  session,
+  onPaymentPhoneChange,
+  onRefreshEntitlement,
+  onSelectedPackageChange,
+  onStartMpesaPayment,
+}: {
+  entitlementTier: EntitlementTier;
+  isPaymentStarting: boolean;
+  packages: CoursePackage[];
+  paymentMessage: string;
+  paymentPhone: string;
+  selectedPackageId: CoursePackage['id'];
+  session: Session | null;
+  onPaymentPhoneChange: (value: string) => void;
+  onRefreshEntitlement: () => void;
+  onSelectedPackageChange: (packageId: CoursePackage['id']) => void;
+  onStartMpesaPayment: () => void;
+}) {
+  const [isPaymentOpen, setIsPaymentOpen] = useState(entitlementTier === 'none');
+  const selectedPackage = packages.find((item) => item.id === selectedPackageId) ?? packages[1];
+  const hasActiveAccess = entitlementTier !== 'none';
+  useEffect(() => {
+    if (hasActiveAccess) {
+      setIsPaymentOpen(false);
+    }
+  }, [hasActiveAccess]);
+  const tierLabel = entitlementTier === 'consultation'
+    ? 'Full Course + Live Consultation'
+    : entitlementTier === 'full'
+      ? 'Full Course'
+      : entitlementTier === 'basic'
+        ? 'Basic Course'
+        : 'No paid course yet';
+
+  return (
+    <View style={styles.paymentCard}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isPaymentOpen }}
+        onPress={() => setIsPaymentOpen((current) => !current)}
+        style={styles.paymentHeader}
+      >
+        <View style={styles.paymentHeaderCopy}>
+          <Text style={styles.cardLabel}>Course Access</Text>
+          <Text style={styles.paymentTitle}>{hasActiveAccess ? `${tierLabel} active` : 'Upgrade with M-Pesa'}</Text>
+          <Text style={styles.paymentText}>{hasActiveAccess ? 'Your one-time purchase is saved to this profile.' : 'One-time payments. No subscription. Secure STK push powered by PayHero.'}</Text>
+        </View>
+        <View style={styles.paymentHeaderActions}>
+          <View style={[styles.paymentStatusPill, hasActiveAccess && styles.paymentStatusPillActive]}>
+            <Text style={[styles.paymentStatusText, hasActiveAccess && styles.paymentStatusTextActive]}>
+              {hasActiveAccess ? 'Active' : 'Locked'}
+            </Text>
+          </View>
+          <Text style={styles.paymentToggle}>{isPaymentOpen ? 'Hide' : 'View'}</Text>
+        </View>
+      </Pressable>
+
+      {isPaymentOpen ? <View style={styles.packageGrid}>
+        {packages.map((item) => {
+          const isSelected = item.id === selectedPackage.id;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              key={item.id}
+              onPress={() => onSelectedPackageChange(item.id)}
+              style={[styles.packageCard, isSelected && styles.packageCardActive]}
+            >
+              <Text style={[styles.packageTitle, isSelected && styles.packageTitleActive]}>{item.title}</Text>
+              <Text style={[styles.packagePrice, isSelected && styles.packagePriceActive]}>KES {item.priceKes.toLocaleString()}</Text>
+              <Text style={[styles.packageSummary, isSelected && styles.packageSummaryActive]}>{item.summary}</Text>
+              {item.unlocks.map((unlock) => (
+                <Text key={`${item.id}-${unlock}`} style={[styles.packageUnlock, isSelected && styles.packageUnlockActive]}>{unlock}</Text>
+              ))}
+            </Pressable>
+          );
+        })}
+      </View> : null}
+
+      {isPaymentOpen ? <View style={styles.paymentForm}>
+        <TextInput
+          accessibilityLabel="M-Pesa phone number"
+          autoCapitalize="none"
+          keyboardType="phone-pad"
+          onChangeText={onPaymentPhoneChange}
+          placeholder="M-Pesa phone e.g. 0712 345 678"
+          placeholderTextColor="#7A8A82"
+          style={styles.profileInput}
+          value={paymentPhone}
+        />
+        <View style={styles.profileActionRow}>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!session || isPaymentStarting}
+            onPress={onStartMpesaPayment}
+            style={[styles.profilePrimaryButton, (!session || isPaymentStarting) && styles.profileButtonDisabled]}
+          >
+            <Text style={styles.profilePrimaryButtonText}>{isPaymentStarting ? 'Sending...' : `Pay KES ${selectedPackage.priceKes.toLocaleString()}`}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={onRefreshEntitlement} style={styles.profileSecondaryButton}>
+            <Text style={styles.profileSecondaryButtonText}>Refresh Access</Text>
+          </Pressable>
+        </View>
+        <Text style={styles.profileSyncText}>{session ? paymentMessage : 'Create or sign in to your profile before buying course access.'}</Text>
+      </View> : null}
+      {!isPaymentOpen ? <Text style={styles.paymentCollapsedText}>Tap to view plans and payment details.</Text> : null}
+    </View>
+  );
+}
 function ProfileTrustLinks({ onOpenPage }: { onOpenPage: (pageId: PublicPageId) => void }) {
   const pages: PublicPageId[] = ['vision', 'mission', 'payments', 'privacy', 'terms', 'refunds', 'contact'];
 
@@ -2239,13 +2588,13 @@ const styles = StyleSheet.create({
     borderBottomColor: '#DDE8D8',
     borderBottomWidth: 1,
     paddingHorizontal: 0,
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   topBarInner: {
     alignItems: 'center',
     alignSelf: 'center',
     flexDirection: 'row',
-    gap: 16,
+    gap: 12,
     justifyContent: 'space-between',
     maxWidth: 1180,
     paddingHorizontal: 24,
@@ -2257,17 +2606,27 @@ const styles = StyleSheet.create({
   brandLockup: {
     flexShrink: 1,
     justifyContent: 'center',
-    minHeight: 76,
+    marginLeft: -22,
+    minHeight: 62,
+    overflow: 'hidden',
+    width: 410,
+  },
+  brandLockupCompact: {
+    marginLeft: -24,
+    minHeight: 54,
+    width: 330,
   },
   brandLogo: {
-    height: 76,
+    height: 66,
+    marginLeft: -140,
     maxWidth: 560,
     width: 460,
   },
   brandLogoCompact: {
-    height: 56,
-    maxWidth: 300,
-    width: 270,
+    height: 54,
+    marginLeft: -54,
+    maxWidth: 330,
+    width: 330,
   },
   brand: {
     color: '#10251B',
@@ -2283,6 +2642,32 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     gap: 8,
+  },
+  headerProgress: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 999,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 7,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  headerProgressCompact: {
+    display: 'none',
+  },
+  headerProgressText: {
+    color: '#0E6B4F',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  headerProgressDot: {
+    color: '#C39A2E',
+    fontSize: 14,
+    fontWeight: '900',
+    lineHeight: 14,
   },
   stat: {
     alignItems: 'center',
@@ -3802,6 +4187,14 @@ const styles = StyleSheet.create({
     minHeight: 520,
     padding: 18,
   },
+  profileSignupCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 14,
+    padding: 18,
+  },
   profileSignupModal: {
     backgroundColor: '#FFFFFF',
     borderColor: '#F1C84B',
@@ -3823,6 +4216,51 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     lineHeight: 22,
+  },
+  profileAuthChoices: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 16,
+  },
+  profileFoldButton: {
+    alignItems: 'center',
+    backgroundColor: '#F7FAF6',
+    borderColor: '#CFE0C9',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    minHeight: 46,
+    paddingHorizontal: 15,
+    width: 148,
+  },
+  profileFoldButtonActive: {
+    backgroundColor: '#0E6B4F',
+    borderColor: '#0E6B4F',
+  },
+  profileFoldButtonText: {
+    color: '#0E6B4F',
+    fontSize: 13,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  profileFoldButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  profileFoldButtonIcon: {
+    color: '#C1562E',
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 20,
+  },
+  profileAuthPanel: {
+    borderColor: '#DDE8D8',
+    borderTopWidth: 1,
+    gap: 10,
+    marginTop: 16,
+    paddingTop: 16,
   },
   profileHeroCard: {
     backgroundColor: '#0E6B4F',
@@ -3860,7 +4298,134 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: '900',
   },
-  profileTrustCard: {
+  paymentCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 14,
+  },
+  paymentHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  paymentHeaderCopy: {
+    flex: 1,
+  },
+  paymentTitle: {
+    color: '#10251B',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  paymentText: {
+    color: '#5D6D65',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  paymentStatusPill: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  paymentStatusPillActive: {
+    backgroundColor: '#0E6B4F',
+    borderColor: '#0E6B4F',
+  },
+  paymentStatusText: {
+    color: '#6E7C75',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  paymentStatusTextActive: {
+    color: '#FFFFFF',
+  },
+  paymentHeaderActions: {
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  paymentToggle: {
+    color: '#0E6B4F',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  paymentCollapsedText: {
+    color: '#6E7C75',
+    fontSize: 13,
+    fontWeight: '700',
+    marginTop: 12,
+  },
+  packageGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  packageCard: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    flexGrow: 1,
+    minWidth: 220,
+    padding: 14,
+    width: '31%',
+  },
+  packageCardActive: {
+    backgroundColor: '#0E6B4F',
+    borderColor: '#0E6B4F',
+  },
+  packageTitle: {
+    color: '#10251B',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  packageTitleActive: {
+    color: '#FFFFFF',
+  },
+  packagePrice: {
+    color: '#C1562E',
+    fontSize: 22,
+    fontWeight: '900',
+    marginTop: 6,
+  },
+  packagePriceActive: {
+    color: '#F1C84B',
+  },
+  packageSummary: {
+    color: '#40514A',
+    fontSize: 13,
+    fontWeight: '700',
+    lineHeight: 18,
+    marginBottom: 8,
+    marginTop: 5,
+  },
+  packageSummaryActive: {
+    color: '#D9F5E9',
+  },
+  packageUnlock: {
+    color: '#5D6D65',
+    fontSize: 12,
+    fontWeight: '800',
+    lineHeight: 18,
+  },
+  packageUnlockActive: {
+    color: '#FFFFFF',
+  },
+  paymentForm: {
+    gap: 10,
+    marginTop: 14,
+  },  profileTrustCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#DDE8D8',
     borderRadius: 8,
@@ -3940,7 +4505,27 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 14,
     marginTop: 14,
-    padding: 18,
+    padding: 14,
+  },
+  profileAccountSummary: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    minHeight: 58,
+  },
+  profileCompactAvatar: {
+    alignItems: 'center',
+    backgroundColor: '#0E6B4F',
+    borderRadius: 8,
+    height: 42,
+    justifyContent: 'center',
+    width: 42,
+  },
+  profileAccountToggle: {
+    color: '#0E6B4F',
+    fontSize: 11,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   profileAccountHeader: {
     alignItems: 'center',
@@ -4076,10 +4661,28 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 19,
   },
+  profileSignOutRow: {
+    alignItems: 'center',
+    borderTopColor: '#DDE8D8',
+    borderTopWidth: 1,
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    marginTop: 20,
+    paddingBottom: 18,
+    paddingTop: 18,
+  },
+  profileSignOutText: {
+    color: '#6E7C75',
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+  },
   profileGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
+    marginTop: 12,
   },
   metricCard: {
     backgroundColor: '#FFFFFF',
@@ -4342,11 +4945,5 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 });
-
-
-
-
-
-
 
 
