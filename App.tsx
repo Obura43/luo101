@@ -123,7 +123,7 @@ export default function App() {
   const [authEmailConfirm, setAuthEmailConfirm] = useState('');
   const [authPassword, setAuthPassword] = useState('');
   const [authDisplayName, setAuthDisplayName] = useState('');
-  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-in');
+  const [authMode, setAuthMode] = useState<'sign-in' | 'sign-up'>('sign-up');
   const [authMessage, setAuthMessage] = useState('');
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
 
@@ -1606,147 +1606,190 @@ function ProfileScreen({
   onSignOut: () => void;
   onSyncNow: () => void;
 }) {
+  const [isProgressOpen, setIsProgressOpen] = useState(false);
   const completedUnits = learningUnits.filter((item) => {
     const progress = unitProgressById[item.id];
     return progress?.reviewCompleted && progress.correctExerciseIds.length === item.exercises.length;
   }).length;
+  const displayName = profileName.trim() || authDisplayName.trim() || 'Learner';
+  const hour = new Date().getHours();
+  const greeting = hour >= 5 && hour < 12
+    ? `Oyawore ${displayName}!`
+    : hour >= 12 && hour < 18
+      ? `Iriyo nade ${displayName}!`
+      : `Oimore ${displayName}!`;
+  const progressPercent = Math.round(lessonProgress * 100);
+
+  if (!session) {
+    return (
+      <View>
+        <Text style={styles.kicker}>Profile</Text>
+        <Text style={styles.screenTitle}>Create your Luo101 profile</Text>
+        <View style={styles.profileSignupBackdrop}>
+          <View style={styles.profileSignupModal}>
+            <Text style={styles.cardLabel}>Join Luo101</Text>
+            <Text style={styles.profileSignupTitle}>Join thousands of learners already learning and preserving the beautiful Luo language.</Text>
+            <Text style={styles.profileSignupText}>
+              Create your account to save XP, streaks, completed units, and review progress across devices.
+            </Text>
+
+            <View style={styles.profileAccountForm}>
+              <View style={styles.profileModeSwitch}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => onAuthModeChange('sign-up')}
+                  style={[styles.profileModeButton, authMode === 'sign-up' && styles.profileModeButtonActive]}
+                >
+                  <Text style={[styles.profileModeText, authMode === 'sign-up' && styles.profileModeTextActive]}>Sign Up</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => onAuthModeChange('sign-in')}
+                  style={[styles.profileModeButton, authMode === 'sign-in' && styles.profileModeButtonActive]}
+                >
+                  <Text style={[styles.profileModeText, authMode === 'sign-in' && styles.profileModeTextActive]}>Sign In</Text>
+                </Pressable>
+              </View>
+
+              {authMode === 'sign-up' ? (
+                <TextInput
+                  accessibilityLabel="Display name"
+                  autoCapitalize="words"
+                  onChangeText={onAuthDisplayNameChange}
+                  placeholder="Display name"
+                  placeholderTextColor="#7A8A82"
+                  style={styles.profileInput}
+                  value={authDisplayName}
+                />
+              ) : null}
+              <TextInput
+                accessibilityLabel="Email address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="email-address"
+                onChangeText={onAuthEmailChange}
+                placeholder="Email address"
+                placeholderTextColor="#7A8A82"
+                style={styles.profileInput}
+                value={authEmail}
+              />
+              {authMode === 'sign-up' ? (
+                <TextInput
+                  accessibilityLabel="Confirm email address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  onChangeText={onAuthEmailConfirmChange}
+                  placeholder="Type email again"
+                  placeholderTextColor="#7A8A82"
+                  style={styles.profileInput}
+                  value={authEmailConfirm}
+                />
+              ) : null}
+              <TextInput
+                accessibilityLabel="Password"
+                autoCapitalize="none"
+                onChangeText={onAuthPasswordChange}
+                placeholder="Password"
+                placeholderTextColor="#7A8A82"
+                secureTextEntry
+                style={styles.profileInput}
+                value={authPassword}
+              />
+              <Pressable
+                accessibilityRole="button"
+                disabled={!isCloudConfigured}
+                onPress={onAuthSubmit}
+                style={[styles.profilePrimaryButton, !isCloudConfigured && styles.profileButtonDisabled]}
+              >
+                <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
+              </Pressable>
+            </View>
+            <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View>
-      <Text style={styles.kicker}>Profile</Text>
-      <Text style={styles.screenTitle}>Your Luo101 rhythm</Text>
+      <View style={styles.profileHeroCard}>
+        <View style={styles.profileAccountHeader}>
+          <View style={styles.profileAvatarLarge}>
+            <Text style={styles.profileAvatarTextLarge}>{displayName.charAt(0).toUpperCase() || 'L'}</Text>
+          </View>
+          <View style={styles.profileAccountCopy}>
+            <Text style={styles.kickerOnDark}>Profile</Text>
+            <Text style={styles.profileGreeting}>{greeting}</Text>
+            <Text style={styles.profileHeroText}>Your learning is part of keeping Dholuo alive, spoken, and passed on.</Text>
+          </View>
+        </View>
+      </View>
+
       <View style={styles.profileGrid}>
         <MetricCard label="Total XP" value={xp.toString()} />
         <MetricCard label="Streak" value={`${streak} days`} />
         <MetricCard label="Level" value="Beginner 1" />
-        <MetricCard label={`${unit.title} Progress`} value={`${Math.round(lessonProgress * 100)}%`} />
-        <MetricCard label="Parts Complete" value={`${completedUnits}/${learningUnits.length}`} />
-        <MetricCard label="Rounds" value={completedRounds.toString()} />
-        <MetricCard label="Misses" value={mistakes.toString()} />
+        <MetricCard label="Current Progress" value={`${progressPercent}%`} />
       </View>
+
       <View style={styles.profileAccountCard}>
         <View style={styles.profileAccountHeader}>
           <View style={styles.profileAvatar}>
-            <Text style={styles.profileAvatarText}>{profileName.trim().charAt(0).toUpperCase() || 'L'}</Text>
+            <Text style={styles.profileAvatarText}>{displayName.charAt(0).toUpperCase() || 'L'}</Text>
           </View>
           <View style={styles.profileAccountCopy}>
-            <Text style={styles.cardLabel}>{session ? 'Cloud Profile' : 'Create Your Profile'}</Text>
-            <Text style={styles.profileAccountTitle}>{session ? profileName : 'Save your Luo101 progress'}</Text>
-            <Text style={styles.profileAccountSubtext}>
-              {session ? session.user.email : 'Create an account once, then sign in immediately to sync XP, streaks, completed units, and review progress.'}
-            </Text>
+            <Text style={styles.cardLabel}>Cloud Profile</Text>
+            <Text style={styles.profileAccountTitle}>{displayName}</Text>
+            <Text style={styles.profileAccountSubtext}>{session.user.email}</Text>
           </View>
         </View>
-
-        {session ? (
-          <View style={styles.profileAccountForm}>
-            <TextInput
-              accessibilityLabel="Display name"
-              autoCapitalize="words"
-              onChangeText={onAuthDisplayNameChange}
-              placeholder="Display name"
-              placeholderTextColor="#7A8A82"
-              style={styles.profileInput}
-              value={authDisplayName}
-            />
-            <View style={styles.profileActionRow}>
-              <Pressable accessibilityRole="button" onPress={onSaveProfileName} style={styles.profilePrimaryButton}>
-                <Text style={styles.profilePrimaryButtonText}>Save Name</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={onSyncNow} style={styles.profileSecondaryButton}>
-                <Text style={styles.profileSecondaryButtonText}>Sync Now</Text>
-              </Pressable>
-              <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.profileGhostButton}>
-                <Text style={styles.profileGhostButtonText}>Sign Out</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.profileAccountForm}>
-            <View style={styles.profileModeSwitch}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => onAuthModeChange('sign-in')}
-                style={[styles.profileModeButton, authMode === 'sign-in' && styles.profileModeButtonActive]}
-              >
-                <Text style={[styles.profileModeText, authMode === 'sign-in' && styles.profileModeTextActive]}>Sign In</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => onAuthModeChange('sign-up')}
-                style={[styles.profileModeButton, authMode === 'sign-up' && styles.profileModeButtonActive]}
-              >
-                <Text style={[styles.profileModeText, authMode === 'sign-up' && styles.profileModeTextActive]}>Sign Up</Text>
-              </Pressable>
-            </View>
-            {authMode === 'sign-up' ? (
-              <TextInput
-                accessibilityLabel="Display name"
-                autoCapitalize="words"
-                onChangeText={onAuthDisplayNameChange}
-                placeholder="Display name"
-                placeholderTextColor="#7A8A82"
-                style={styles.profileInput}
-                value={authDisplayName}
-              />
-            ) : null}
-            <TextInput
-              accessibilityLabel="Email address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              onChangeText={onAuthEmailChange}
-              placeholder="Email address"
-              placeholderTextColor="#7A8A82"
-              style={styles.profileInput}
-              value={authEmail}
-            />
-            {authMode === 'sign-up' ? (
-              <TextInput
-                accessibilityLabel="Confirm email address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                onChangeText={onAuthEmailConfirmChange}
-                placeholder="Type email again"
-                placeholderTextColor="#7A8A82"
-                style={styles.profileInput}
-                value={authEmailConfirm}
-              />
-            ) : null}
-            <TextInput
-              accessibilityLabel="Password"
-              autoCapitalize="none"
-              onChangeText={onAuthPasswordChange}
-              placeholder="Password"
-              placeholderTextColor="#7A8A82"
-              secureTextEntry
-              style={styles.profileInput}
-              value={authPassword}
-            />
-            <Pressable
-              accessibilityRole="button"
-              disabled={!isCloudConfigured}
-              onPress={onAuthSubmit}
-              style={[styles.profilePrimaryButton, !isCloudConfigured && styles.profileButtonDisabled]}
-            >
-              <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
+        <View style={styles.profileAccountForm}>
+          <TextInput
+            accessibilityLabel="Display name"
+            autoCapitalize="words"
+            onChangeText={onAuthDisplayNameChange}
+            placeholder="Display name"
+            placeholderTextColor="#7A8A82"
+            style={styles.profileInput}
+            value={authDisplayName}
+          />
+          <View style={styles.profileActionRow}>
+            <Pressable accessibilityRole="button" onPress={onSaveProfileName} style={styles.profilePrimaryButton}>
+              <Text style={styles.profilePrimaryButtonText}>Save Name</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={onSyncNow} style={styles.profileSecondaryButton}>
+              <Text style={styles.profileSecondaryButtonText}>Sync Now</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={onSignOut} style={styles.profileGhostButton}>
+              <Text style={styles.profileGhostButtonText}>Sign Out</Text>
             </Pressable>
           </View>
-        )}
-
+        </View>
         <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
       </View>
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Progress Map</Text>
-        <Text style={styles.sectionMeta}>{completedUnits}/{learningUnits.length}</Text>
+      <View style={styles.profileProgressCard}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setIsProgressOpen((current) => !current)}
+          style={styles.profileProgressToggle}
+        >
+          <View>
+            <Text style={styles.cardLabel}>Learning Progress</Text>
+            <Text style={styles.profileProgressTitle}>{completedUnits}/{learningUnits.length} parts complete</Text>
+          </View>
+          <Text style={styles.profileProgressToggleText}>{isProgressOpen ? 'Hide' : 'Show'}</Text>
+        </Pressable>
+        {isProgressOpen ? (
+          <UnitProgressList
+            selectedUnitId={selectedUnitId}
+            unitProgressById={unitProgressById}
+            onSelectUnit={onSelectUnit}
+          />
+        ) : null}
       </View>
-      <UnitProgressList
-        selectedUnitId={selectedUnitId}
-        unitProgressById={unitProgressById}
-        onSelectUnit={onSelectUnit}
-      />
     </View>
   );
 }
@@ -3463,6 +3506,108 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     lineHeight: 20,
     marginTop: 10,
+  },
+  profileSignupBackdrop: {
+    alignItems: 'center',
+    backgroundColor: '#E4F2EE',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    marginTop: 14,
+    minHeight: 520,
+    padding: 18,
+  },
+  profileSignupModal: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 14,
+    maxWidth: 520,
+    padding: 22,
+    width: '100%',
+  },
+  profileSignupTitle: {
+    color: '#10251B',
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 32,
+  },
+  profileSignupText: {
+    color: '#40514A',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+  },
+  profileHeroCard: {
+    backgroundColor: '#0E6B4F',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: 14,
+    padding: 20,
+  },
+  profileGreeting: {
+    color: '#FFFFFF',
+    fontSize: 32,
+    fontWeight: '900',
+    lineHeight: 38,
+  },
+  profileHeroText: {
+    color: '#D9F5E9',
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 22,
+    marginTop: 4,
+  },
+  profileAvatarLarge: {
+    alignItems: 'center',
+    backgroundColor: '#F7FAF6',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 2,
+    height: 72,
+    justifyContent: 'center',
+    width: 72,
+  },
+  profileAvatarTextLarge: {
+    color: '#0E6B4F',
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  profileProgressCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 12,
+    marginTop: 14,
+    padding: 16,
+  },
+  profileProgressToggle: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    minHeight: 54,
+  },
+  profileProgressTitle: {
+    color: '#10251B',
+    fontSize: 20,
+    fontWeight: '900',
+    lineHeight: 25,
+  },
+  profileProgressToggleText: {
+    backgroundColor: '#E4F2EE',
+    borderRadius: 8,
+    color: '#0E6B4F',
+    fontSize: 12,
+    fontWeight: '900',
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    textTransform: 'uppercase',
   },
   profileAccountCard: {
     backgroundColor: '#FFFFFF',
