@@ -74,7 +74,12 @@ type StorageLike = {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
 };
-type DocumentLike = { title: string };
+type DocumentLike = {
+  title: string;
+  head?: { appendChild: (node: unknown) => void };
+  createElement?: (tagName: string) => { id?: string; textContent?: string };
+  getElementById?: (id: string) => unknown;
+};
 
 const STORAGE_KEY = 'luo101-progress-v1';
 const defaultUnitProgress: UnitProgress = {
@@ -125,6 +130,7 @@ const BASIC_UNLOCKED_UNIT_IDS = new Set([
   'body-health',
   'stories-poems',
 ]);
+const FREE_UNIT_IDS = new Set(['greetings']);
 const DICTIONARY_UNIT_ID = 'dictionary-az';
 const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
   vision: {
@@ -255,6 +261,26 @@ function setDocumentTitle(title: string) {
   }
 }
 
+function installWebFontStack() {
+  const candidate = globalThis as typeof globalThis & { document?: DocumentLike };
+  const documentRef = candidate.document;
+
+  if (!documentRef?.head || !documentRef.createElement || documentRef.getElementById?.('luo101-font-stack')) {
+    return;
+  }
+
+  const style = documentRef.createElement('style');
+  style.id = 'luo101-font-stack';
+  style.textContent = `
+    html, body, input, textarea, button, select, [class*="css-text"] {
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+      font-synthesis-weight: none;
+      text-rendering: optimizeLegibility;
+    }
+  `;
+  documentRef.head.appendChild(style);
+}
+
 export default function App() {
   const { width } = useWindowDimensions();
   const isCompactShell = width < 720;
@@ -328,6 +354,7 @@ export default function App() {
   );
 
   useEffect(() => {
+    installWebFontStack();
     setDocumentTitle('Luo101');
     void setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }, []);
@@ -428,6 +455,10 @@ export default function App() {
   }
 
   function canAccessUnit(unitId: string, tier = entitlementTier) {
+    if (FREE_UNIT_IDS.has(unitId)) {
+      return true;
+    }
+
     if (unitId === DICTIONARY_UNIT_ID) {
       return Boolean(session);
     }
@@ -669,13 +700,18 @@ export default function App() {
   }
 
   function requireCourseAccess(action: () => void, unitId = unit.id) {
-    if (!session) {
-      requireProfile(() => requireCourseAccess(action, unitId), 'Create your Luo101 profile to buy course access and save your progress.');
+    if (canAccessUnit(unitId)) {
+      action();
       return;
     }
 
-    if (canAccessUnit(unitId)) {
-      action();
+    if (!session) {
+      const lockedUnit = learningUnits.find((item) => item.id === unitId);
+      const lockedLabel = lockedUnit?.unitLabel ?? lockedUnit?.title ?? 'This unit';
+      requireProfile(
+        () => requireCourseAccess(action, unitId),
+        `${lockedLabel} is part of the paid Luo101 course. Create your profile to upgrade and keep learning.`,
+      );
       return;
     }
 
@@ -1144,11 +1180,29 @@ function LearnScreen({
         </View>
         <View style={styles.cultureCard}>
           <Text style={styles.cardLabel}>Mini Dialogue</Text>
-          {unit.conversation.slice(0, 2).map((line) => (
-            <Text key={`preview-${line.speaker}-${line.line}`} style={styles.dialoguePreview}>
-              {line.speaker}: {line.line}
-            </Text>
-          ))}
+          {unit.conversation.slice(0, 6).map((line, index) => {
+            const isFirstSpeaker = index % 2 === 0;
+
+            return (
+              <View
+                key={`preview-${line.speaker}-${line.line}`}
+                style={[
+                  styles.dialoguePreviewLine,
+                  isFirstSpeaker ? styles.dialoguePreviewLinePrimary : styles.dialoguePreviewLineSecondary,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.dialoguePreviewSpeaker,
+                    isFirstSpeaker ? styles.dialoguePreviewSpeakerPrimary : styles.dialoguePreviewSpeakerSecondary,
+                  ]}
+                >
+                  {line.speaker}
+                </Text>
+                <Text style={styles.dialoguePreviewText}>{line.line}</Text>
+              </View>
+            );
+          })}
         </View>
       </View>
     </View>
@@ -1774,13 +1828,12 @@ function PhrasebookScreen({
   );
 
   function playPhraseAudio(audioKey: string, unitId: string) {
-    if (!session) {
-      onRequireProfile();
-      return;
-    }
-
     if (!canAccessUnit(unitId)) {
-      onRequireUpgrade(unitId);
+      if (!session) {
+        onRequireProfile();
+      } else {
+        onRequireUpgrade(unitId);
+      }
       return;
     }
 
@@ -2685,12 +2738,12 @@ const styles = StyleSheet.create({
   brand: {
     color: '#10251B',
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   brandSub: {
     color: '#5D6D65',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     marginTop: 2,
   },
   statsRow: {
@@ -2727,13 +2780,13 @@ const styles = StyleSheet.create({
   headerProgressText: {
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   headerProgressDot: {
     color: '#C39A2E',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 14,
   },
   dictionaryShortcutButton: {
@@ -2751,7 +2804,7 @@ const styles = StyleSheet.create({
   dictionaryShortcutIcon: {
     color: '#0E6B4F',
     fontSize: 26,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 28,
   },
   stat: {
@@ -2767,12 +2820,12 @@ const styles = StyleSheet.create({
   statValue: {
     color: '#0E6B4F',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   statLabel: {
     color: '#6E7C75',
     fontSize: 10,
-    fontWeight: '800',
+    fontWeight: '500',
     textTransform: 'uppercase',
   },
   content: {
@@ -2820,7 +2873,7 @@ const styles = StyleSheet.create({
   kicker: {
     color: '#C1562E',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     letterSpacing: 0,
     marginBottom: 8,
     textTransform: 'uppercase',
@@ -2828,7 +2881,7 @@ const styles = StyleSheet.create({
   kickerOnDark: {
     color: '#F1C84B',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     letterSpacing: 0,
     textTransform: 'uppercase',
   },
@@ -2837,7 +2890,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#0E6B4F',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -2846,7 +2899,7 @@ const styles = StyleSheet.create({
   heroTitle: {
     color: '#FFFFFF',
     fontSize: 34,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 40,
   },
   heroTitleCompact: {
@@ -2856,7 +2909,7 @@ const styles = StyleSheet.create({
   heroText: {
     color: '#D9F5E9',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 4,
   },
@@ -2871,28 +2924,28 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: '#FFF6D3',
     fontSize: 14,
-    fontWeight: '800',
-    lineHeight: 20,
+    fontWeight: '400',
+    lineHeight: 22,
     marginTop: 10,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
   heroMissionCompact: {
     fontSize: 13,
-    lineHeight: 19,
+    lineHeight: 21,
     paddingHorizontal: 10,
   },
   heroGoal: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '800',
-    lineHeight: 19,
+    fontWeight: '400',
+    lineHeight: 20,
     marginTop: 12,
     opacity: 0.9,
   },
   heroGoalCompact: {
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 19,
     marginTop: 8,
   },
   progressTrack: {
@@ -2909,7 +2962,7 @@ const styles = StyleSheet.create({
   heroProgressText: {
     color: '#D9F5E9',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 8,
     textTransform: 'uppercase',
   },
@@ -2932,12 +2985,12 @@ const styles = StyleSheet.create({
   mascotTop: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   mascotBottom: {
     color: '#C1562E',
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   learnGrid: {
     flexDirection: 'row',
@@ -2958,12 +3011,12 @@ const styles = StyleSheet.create({
   learnMetricValue: {
     color: '#0E6B4F',
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   learnMetricLabel: {
     color: '#6E7C75',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 4,
     textTransform: 'uppercase',
   },
@@ -2983,7 +3036,7 @@ const styles = StyleSheet.create({
   sectionTitleSmall: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   unitPickerScroll: {
     maxHeight: 356,
@@ -3030,7 +3083,7 @@ const styles = StyleSheet.create({
     color: '#C1562E',
     flex: 1,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   unitPickerLabelActive: {
@@ -3039,7 +3092,7 @@ const styles = StyleSheet.create({
   unitPickerStatus: {
     color: '#6E7C75',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   unitPickerStatusComplete: {
@@ -3048,7 +3101,7 @@ const styles = StyleSheet.create({
   unitPickerTitle: {
     color: '#10251B',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 20,
     marginTop: 6,
   },
@@ -3066,7 +3119,7 @@ const styles = StyleSheet.create({
   unitPickerMeta: {
     color: '#5D6D65',
     fontSize: 11,
-    fontWeight: '800',
+    fontWeight: '500',
     marginTop: 7,
     textTransform: 'uppercase',
   },
@@ -3092,13 +3145,13 @@ const styles = StyleSheet.create({
   nextTitle: {
     color: '#10251B',
     fontSize: 19,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 24,
   },
   nextText: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 4,
   },
@@ -3120,12 +3173,12 @@ const styles = StyleSheet.create({
   phraseChipText: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   phraseChipSub: {
     color: '#5F4320',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
     lineHeight: 16,
     marginTop: 3,
   },
@@ -3141,7 +3194,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: '#10251B',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   sectionTitleCompact: {
     fontSize: 19,
@@ -3149,7 +3202,7 @@ const styles = StyleSheet.create({
   sectionMeta: {
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   path: {
     marginTop: 14,
@@ -3200,7 +3253,7 @@ const styles = StyleSheet.create({
   pathDotText: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   pathCopy: {
     flex: 1,
@@ -3218,7 +3271,7 @@ const styles = StyleSheet.create({
   pathTitle: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   pathTitleCompact: {
     flexBasis: '100%',
@@ -3226,7 +3279,7 @@ const styles = StyleSheet.create({
   pathState: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
     textTransform: 'uppercase',
   },
   pathStateActive: {
@@ -3238,7 +3291,7 @@ const styles = StyleSheet.create({
   pathDetail: {
     color: '#5D6D65',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
     marginTop: 5,
   },
@@ -3257,7 +3310,7 @@ const styles = StyleSheet.create({
   primaryButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   secondaryButton: {
     alignItems: 'center',
@@ -3271,7 +3324,7 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: '#C1562E',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   cultureCard: {
     backgroundColor: '#FFFFFF',
@@ -3290,21 +3343,48 @@ const styles = StyleSheet.create({
   cardLabel: {
     color: '#0E6B4F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     marginBottom: 6,
     textTransform: 'uppercase',
   },
   cultureText: {
     color: '#40514A',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '400',
     lineHeight: 22,
   },
-  dialoguePreview: {
+  dialoguePreviewLine: {
+    borderLeftWidth: 4,
+    borderRadius: 8,
+    marginTop: 8,
+    paddingHorizontal: 11,
+    paddingVertical: 9,
+  },
+  dialoguePreviewLinePrimary: {
+    backgroundColor: '#EFF8F2',
+    borderLeftColor: '#0E6B4F',
+  },
+  dialoguePreviewLineSecondary: {
+    backgroundColor: '#FFF7DF',
+    borderLeftColor: '#C39A2E',
+  },
+  dialoguePreviewSpeaker: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  dialoguePreviewSpeakerPrimary: {
+    color: '#0E6B4F',
+  },
+  dialoguePreviewSpeakerSecondary: {
+    color: '#9A6A12',
+  },
+  dialoguePreviewText: {
     color: '#10251B',
-    fontSize: 16,
-    fontWeight: '900',
-    lineHeight: 24,
+    fontSize: 15,
+    fontWeight: '600',
+    lineHeight: 21,
+    marginTop: 2,
   },
   lessonHero: {
     backgroundColor: '#10251B',
@@ -3314,13 +3394,13 @@ const styles = StyleSheet.create({
   lessonHeroTitle: {
     color: '#FFFFFF',
     fontSize: 30,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 36,
   },
   lessonHeroText: {
     color: '#D9F5E9',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 8,
   },
@@ -3351,7 +3431,7 @@ const styles = StyleSheet.create({
   teachNumberText: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   teachCopy: {
     flex: 1,
@@ -3359,19 +3439,19 @@ const styles = StyleSheet.create({
   teachFocus: {
     color: '#10251B',
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 34,
   },
   teachTranslation: {
     color: '#0E6B4F',
     fontSize: 15,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 2,
   },
   teachDetail: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 21,
     marginTop: 8,
   },
@@ -3387,7 +3467,7 @@ const styles = StyleSheet.create({
   exampleText: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   patternCard: {
     backgroundColor: '#FFFFFF',
@@ -3408,7 +3488,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -3416,13 +3496,13 @@ const styles = StyleSheet.create({
   patternArrow: {
     color: '#C1562E',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     paddingTop: 4,
   },
   patternLine: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 26,
     marginTop: 14,
   },
@@ -3441,7 +3521,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: '#10251B',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     minHeight: 48,
     paddingHorizontal: 12,
   },
@@ -3463,13 +3543,13 @@ const styles = StyleSheet.create({
   dictionaryStatValue: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 22,
   },
   dictionaryStatLabel: {
     color: '#5D6D65',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 14,
     marginTop: 2,
     textTransform: 'uppercase',
@@ -3477,7 +3557,7 @@ const styles = StyleSheet.create({
   dictionaryFilterLabel: {
     color: '#10251B',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 14,
     textTransform: 'uppercase',
   },
@@ -3504,7 +3584,7 @@ const styles = StyleSheet.create({
   dictionaryLetterText: {
     color: '#40514A',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   dictionaryLetterTextActive: {
     color: '#FFFFFF',
@@ -3531,7 +3611,7 @@ const styles = StyleSheet.create({
   dictionaryCategoryText: {
     color: '#6B4E16',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   dictionaryCategoryTextActive: {
     color: '#FFFFFF',
@@ -3546,7 +3626,7 @@ const styles = StyleSheet.create({
     color: '#5D6D65',
     flex: 1,
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
     textTransform: 'uppercase',
   },
   dictionaryClearButton: {
@@ -3560,7 +3640,7 @@ const styles = StyleSheet.create({
   dictionaryClearText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   dictionaryNotice: {
@@ -3572,12 +3652,12 @@ const styles = StyleSheet.create({
   dictionaryNoticeTitle: {
     color: '#F1C84B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   dictionaryNoticeText: {
     color: '#F7FAF6',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 5,
   },
@@ -3602,7 +3682,7 @@ const styles = StyleSheet.create({
     color: '#10251B',
     flex: 1,
     fontSize: 21,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 27,
   },
   dictionaryCategory: {
@@ -3611,7 +3691,7 @@ const styles = StyleSheet.create({
     color: '#0E6B4F',
     flexShrink: 1,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     maxWidth: 160,
     overflow: 'hidden',
     paddingHorizontal: 8,
@@ -3621,7 +3701,7 @@ const styles = StyleSheet.create({
   dictionaryMeaning: {
     color: '#C1562E',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 22,
     marginTop: 5,
   },
@@ -3634,13 +3714,13 @@ const styles = StyleSheet.create({
   dictionaryNoteLabel: {
     color: '#7A8A82',
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   dictionaryNote: {
     color: '#40514A',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 19,
     marginTop: 4,
   },
@@ -3655,12 +3735,12 @@ const styles = StyleSheet.create({
   dictionaryEmptyTitle: {
     color: '#10251B',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   dictionaryEmptyText: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginBottom: 12,
     marginTop: 5,
@@ -3684,25 +3764,25 @@ const styles = StyleSheet.create({
   readingCount: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
     textTransform: 'uppercase',
   },
   readingTitle: {
     color: '#10251B',
     fontSize: 25,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 31,
   },
   readingEnglishTitle: {
     color: '#C1562E',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 2,
   },
   readingIntroduction: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 10,
   },
@@ -3722,7 +3802,7 @@ const styles = StyleSheet.create({
   readingLineNumber: {
     color: '#0E6B4F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     paddingTop: 3,
     width: 18,
   },
@@ -3732,13 +3812,13 @@ const styles = StyleSheet.create({
   readingDholuo: {
     color: '#10251B',
     fontSize: 17,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 24,
   },
   readingEnglish: {
     color: '#5D6D65',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 3,
   },
@@ -3754,7 +3834,7 @@ const styles = StyleSheet.create({
   readingRevealText: {
     color: '#0E6B4F',
     fontSize: 14,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   readingVocabulary: {
     flexDirection: 'row',
@@ -3773,12 +3853,12 @@ const styles = StyleSheet.create({
   readingWordDholuo: {
     color: '#10251B',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   readingWordEnglish: {
     color: '#6E7C75',
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '400',
     marginTop: 1,
   },
   guidedDialogueCard: {
@@ -3813,13 +3893,13 @@ const styles = StyleSheet.create({
   reviewPhrase: {
     color: '#10251B',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 28,
   },
   reviewTranslation: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '800',
+    fontWeight: '500',
     lineHeight: 20,
     marginTop: 4,
   },
@@ -3832,12 +3912,12 @@ const styles = StyleSheet.create({
   reviewFooterTitle: {
     color: '#F1C84B',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   reviewFooterText: {
     color: '#F7FAF6',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 6,
   },
@@ -3850,12 +3930,12 @@ const styles = StyleSheet.create({
   completeTitle: {
     color: '#F1C84B',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   completeText: {
     color: '#F7FAF6',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 6,
   },
@@ -3872,13 +3952,13 @@ const styles = StyleSheet.create({
   exerciseCount: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   prompt: {
     color: '#10251B',
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 34,
     marginBottom: 18,
   },
@@ -3907,7 +3987,7 @@ const styles = StyleSheet.create({
   optionText: {
     color: '#10251B',
     fontSize: 17,
-    fontWeight: '800',
+    fontWeight: '500',
   },
   answerTray: {
     backgroundColor: '#FFFFFF',
@@ -3921,7 +4001,7 @@ const styles = StyleSheet.create({
   answerText: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   tileRow: {
     flexDirection: 'row',
@@ -3939,7 +4019,7 @@ const styles = StyleSheet.create({
   tileText: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   feedback: {
     borderRadius: 8,
@@ -3955,12 +4035,12 @@ const styles = StyleSheet.create({
   feedbackTitle: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   feedbackText: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 4,
   },
@@ -3978,25 +4058,25 @@ const styles = StyleSheet.create({
   dialogueSpeaker: {
     color: '#C1562E',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   dialogueText: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 4,
   },
   dialogueTranslation: {
     color: '#6E7C75',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     marginTop: 2,
   },
   screenTitle: {
     color: '#10251B',
     fontSize: 28,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 34,
     marginBottom: 16,
   },
@@ -4022,14 +4102,14 @@ const styles = StyleSheet.create({
   phrasebookTitle: {
     color: '#FFFFFF',
     fontSize: 34,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 40,
     marginTop: 6,
   },
   phrasebookIntro: {
     color: '#D9F5E9',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 8,
     maxWidth: 720,
@@ -4055,13 +4135,13 @@ const styles = StyleSheet.create({
   phrasebookStatValue: {
     color: '#0E6B4F',
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 28,
   },
   phrasebookStatLabel: {
     color: '#40514A',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   phrasebookSearchCard: {
@@ -4087,7 +4167,7 @@ const styles = StyleSheet.create({
   phrasebookSearchHint: {
     color: '#6E7C75',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
     marginTop: 3,
   },
@@ -4097,7 +4177,7 @@ const styles = StyleSheet.create({
     color: '#0E6B4F',
     flexShrink: 0,
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 10,
     paddingVertical: 7,
@@ -4116,7 +4196,7 @@ const styles = StyleSheet.create({
     color: '#10251B',
     flex: 1,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '500',
     minHeight: 48,
     paddingHorizontal: 14,
   },
@@ -4131,7 +4211,7 @@ const styles = StyleSheet.create({
   phrasebookClearText: {
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   phrasebookEmptyState: {
@@ -4145,12 +4225,12 @@ const styles = StyleSheet.create({
   phrasebookEmptyTitle: {
     color: '#10251B',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   phrasebookEmptyText: {
     color: '#6E7C75',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 5,
     textAlign: 'center',
@@ -4184,7 +4264,7 @@ const styles = StyleSheet.create({
     color: '#C1562E',
     flexShrink: 0,
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   phraseUnitPill: {
@@ -4193,7 +4273,7 @@ const styles = StyleSheet.create({
     color: '#0E6B4F',
     flexShrink: 1,
     fontSize: 10,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 14,
     overflow: 'hidden',
     paddingHorizontal: 8,
@@ -4212,12 +4292,12 @@ const styles = StyleSheet.create({
   phrase: {
     color: '#10251B',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   translation: {
     color: '#6E7C75',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     marginTop: 2,
   },
   audioButton: {
@@ -4243,7 +4323,7 @@ const styles = StyleSheet.create({
   audioText: {
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   audioTextReady: {
     color: '#FFFFFF',
@@ -4257,7 +4337,7 @@ const styles = StyleSheet.create({
   usage: {
     color: '#40514A',
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 10,
   },
@@ -4293,13 +4373,13 @@ const styles = StyleSheet.create({
   profileSignupTitle: {
     color: '#10251B',
     fontSize: 26,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 32,
   },
   profileSignupText: {
     color: '#40514A',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
   },
   profileAuthChoices: {
@@ -4328,7 +4408,7 @@ const styles = StyleSheet.create({
   profileFoldButtonText: {
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileFoldButtonTextActive: {
@@ -4337,7 +4417,7 @@ const styles = StyleSheet.create({
   profileFoldButtonIcon: {
     color: '#C1562E',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 20,
   },
   profileAuthPanel: {
@@ -4358,13 +4438,13 @@ const styles = StyleSheet.create({
   profileGreeting: {
     color: '#FFFFFF',
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 38,
   },
   profileHeroText: {
     color: '#D9F5E9',
     fontSize: 15,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 22,
     marginTop: 4,
   },
@@ -4381,7 +4461,7 @@ const styles = StyleSheet.create({
   profileAvatarTextLarge: {
     color: '#0E6B4F',
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   paymentCard: {
     backgroundColor: '#FFFFFF',
@@ -4404,12 +4484,12 @@ const styles = StyleSheet.create({
   paymentTitle: {
     color: '#10251B',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   paymentText: {
     color: '#5D6D65',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 19,
     marginTop: 4,
   },
@@ -4428,7 +4508,7 @@ const styles = StyleSheet.create({
   paymentStatusText: {
     color: '#6E7C75',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   paymentStatusTextActive: {
@@ -4441,13 +4521,13 @@ const styles = StyleSheet.create({
   paymentToggle: {
     color: '#0E6B4F',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   paymentCollapsedText: {
     color: '#6E7C75',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     marginTop: 12,
   },
   packageGrid: {
@@ -4473,7 +4553,7 @@ const styles = StyleSheet.create({
   packageTitle: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   packageTitleActive: {
     color: '#FFFFFF',
@@ -4481,7 +4561,7 @@ const styles = StyleSheet.create({
   packagePrice: {
     color: '#C1562E',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 6,
   },
   packagePriceActive: {
@@ -4490,7 +4570,7 @@ const styles = StyleSheet.create({
   packageSummary: {
     color: '#40514A',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
     marginBottom: 8,
     marginTop: 5,
@@ -4501,7 +4581,7 @@ const styles = StyleSheet.create({
   packageUnlock: {
     color: '#5D6D65',
     fontSize: 12,
-    fontWeight: '800',
+    fontWeight: '500',
     lineHeight: 18,
   },
   packageUnlockActive: {
@@ -4534,12 +4614,12 @@ const styles = StyleSheet.create({
   profileTrustTitle: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   profileTrustText: {
     color: '#5D6D65',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 19,
     marginTop: 4,
   },
@@ -4559,7 +4639,7 @@ const styles = StyleSheet.create({
   profileTrustLinkText: {
     color: '#0E6B4F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
   },  profileProgressCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#DDE8D8',
@@ -4579,7 +4659,7 @@ const styles = StyleSheet.create({
   profileProgressTitle: {
     color: '#10251B',
     fontSize: 20,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 25,
   },
   profileProgressToggleText: {
@@ -4587,7 +4667,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#0E6B4F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -4619,7 +4699,7 @@ const styles = StyleSheet.create({
   profileAccountToggle: {
     color: '#0E6B4F',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileAccountHeader: {
@@ -4640,7 +4720,7 @@ const styles = StyleSheet.create({
   profileAvatarText: {
     color: '#FFFFFF',
     fontSize: 24,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   profileAccountCopy: {
     flex: 1,
@@ -4648,13 +4728,13 @@ const styles = StyleSheet.create({
   profileAccountTitle: {
     color: '#10251B',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 28,
   },
   profileAccountSubtext: {
     color: '#6E7C75',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 20,
     marginTop: 2,
   },
@@ -4681,7 +4761,7 @@ const styles = StyleSheet.create({
   profileModeText: {
     color: '#0E6B4F',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileModeTextActive: {
@@ -4694,7 +4774,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     color: '#10251B',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '500',
     minHeight: 48,
     paddingHorizontal: 14,
   },
@@ -4717,7 +4797,7 @@ const styles = StyleSheet.create({
   profilePrimaryButtonText: {
     color: '#FFFFFF',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileSecondaryButton: {
@@ -4731,7 +4811,7 @@ const styles = StyleSheet.create({
   profileSecondaryButtonText: {
     color: '#10251B',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileGhostButton: {
@@ -4747,13 +4827,13 @@ const styles = StyleSheet.create({
   profileGhostButtonText: {
     color: '#C1562E',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
     textTransform: 'uppercase',
   },
   profileSyncText: {
     color: '#40514A',
     fontSize: 13,
-    fontWeight: '800',
+    fontWeight: '500',
     lineHeight: 19,
   },
   profileSignOutRow: {
@@ -4771,7 +4851,7 @@ const styles = StyleSheet.create({
     color: '#6E7C75',
     flex: 1,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '400',
   },
   profileGrid: {
     flexDirection: 'row',
@@ -4791,12 +4871,12 @@ const styles = StyleSheet.create({
   metricValue: {
     color: '#0E6B4F',
     fontSize: 22,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   metricLabel: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     marginTop: 8,
     textTransform: 'uppercase',
   },
@@ -4827,13 +4907,13 @@ const styles = StyleSheet.create({
   progressUnitTitle: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 24,
   },
   progressUnitSubtitle: {
     color: '#5D6D65',
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
     marginTop: 3,
   },
@@ -4853,7 +4933,7 @@ const styles = StyleSheet.create({
   jumpButtonText: {
     color: '#C1562E',
     fontSize: 13,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   jumpButtonTextActive: {
     color: '#FFFFFF',
@@ -4880,7 +4960,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     color: '#40514A',
     fontSize: 11,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 9,
     paddingVertical: 6,
@@ -4901,7 +4981,7 @@ const styles = StyleSheet.create({
   publicBackText: {
     color: '#0E6B4F',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   publicHero: {
     backgroundColor: '#0E6B4F',
@@ -4911,14 +4991,14 @@ const styles = StyleSheet.create({
   publicTitle: {
     color: '#FFFFFF',
     fontSize: 32,
-    fontWeight: '900',
+    fontWeight: '600',
     lineHeight: 38,
     marginTop: 8,
   },
   publicIntro: {
     color: '#D9F5E9',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 23,
     marginTop: 8,
   },
@@ -4935,19 +5015,19 @@ const styles = StyleSheet.create({
   publicSectionTitle: {
     color: '#10251B',
     fontSize: 18,
-    fontWeight: '900',
+    fontWeight: '600',
     marginBottom: 6,
   },
   publicSectionText: {
     color: '#40514A',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '400',
     lineHeight: 22,
   },
   publicFinePrint: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '400',
     lineHeight: 18,
   },
   publicMenuCard: {
@@ -4967,14 +5047,14 @@ const styles = StyleSheet.create({
   publicMenuTitle: {
     color: '#10251B',
     fontSize: 16,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   publicMenuToggle: {
     backgroundColor: '#0E6B4F',
     borderRadius: 8,
     color: '#FFFFFF',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
     overflow: 'hidden',
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -5001,7 +5081,7 @@ const styles = StyleSheet.create({
   publicMenuLinkText: {
     color: '#40514A',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   publicMenuLinkTextActive: {
     color: '#FFFFFF',
@@ -5034,11 +5114,9 @@ const styles = StyleSheet.create({
   navText: {
     color: '#6E7C75',
     fontSize: 12,
-    fontWeight: '900',
+    fontWeight: '600',
   },
   navTextActive: {
     color: '#FFFFFF',
   },
 });
-
-

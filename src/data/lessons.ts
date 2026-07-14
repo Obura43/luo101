@@ -339,10 +339,10 @@ export const greetingExercises: LessonExercise[] = [
 
 export const conversation = [
   { speaker: 'Achieng', line: 'Oyawore.', translation: 'Good morning.' },
-  { speaker: 'Otieno', line: "Nang'o?", translation: 'How are things?' },
-  { speaker: 'Achieng', line: 'Adhi maber. In to?', translation: 'I am well. And you?' },
-  { speaker: 'Otieno', line: "An bende adhi maber. Nyingi ng'a?", translation: 'I am also well. What is your name?' },
-  { speaker: 'Achieng', line: 'Nyinga Achieng. Erokamano.', translation: 'My name is Achieng. Thank you.' },
+  { speaker: 'Otieno', line: 'Oyawore ahinya.', translation: 'A very good morning.' },
+  { speaker: 'Achieng', line: 'Idhi nade?', translation: 'How are you?' },
+  { speaker: 'Otieno', line: 'Adhi maber.', translation: 'I am doing well.' },
+  { speaker: 'Achieng', line: 'Erokamano. Oriti.', translation: 'Thank you. Goodbye.' },
   { speaker: 'Otieno', line: 'Oriti.', translation: 'Goodbye.' },
 ];
 
