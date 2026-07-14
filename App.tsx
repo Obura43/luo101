@@ -184,13 +184,18 @@ const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
   payments: {
     id: 'payments',
     eyebrow: 'Payments & Billing',
-    title: 'How paid Luo101 access will work',
-    intro: 'This page prepares learners for M-Pesa and card payments without exposing sensitive payment details inside Luo101.',
+    title: 'Clear payments for preserving Dholuo',
+    intro: 'Luo101 uses one-time course payments to support the work of building, reviewing, recording, and preserving a beautiful living language.',
     sections: [
-      { heading: 'Payment methods', body: 'Luo101 plans to support M-Pesa payments and card payments such as Visa or Mastercard, using secure third-party payment providers.' },
-      { heading: 'Access after payment', body: 'After a successful payment, Luo101 will save an entitlement on your account so lessons, practice, phrase audio, and progress features can unlock for that learner.' },
-      { heading: 'Security', body: 'Payment providers handle sensitive payment details. Luo101 should only store references, status, amount, provider name, and the account connected to the purchase.' },
-      { heading: 'Payment help', body: 'If a payment succeeds but access does not unlock, contact support with your account email and transaction reference so the purchase can be checked.' },
+      { heading: 'One-time course access', body: 'Luo101 course packages are one-time purchases, not recurring subscriptions. The package shown at checkout is the package connected to your Luo101 account after payment is confirmed.' },
+      { heading: 'Payment methods', body: 'M-Pesa payments are processed through PayHero. Card payments such as Visa or Mastercard may be added through secure third-party processors as Luo101 grows.' },
+      { heading: 'Access after payment', body: 'After a successful payment, Luo101 saves a course entitlement to your signed-in profile. That entitlement unlocks the lessons, practice, phrase audio, readings, and course areas included in the package you selected.' },
+      { heading: 'Keep your account email correct', body: 'Course access is tied to the account used at the time of purchase. Before paying, sign in with the email you want to keep using for Luo101.' },
+      { heading: 'What Luo101 stores', body: 'Luo101 stores payment status, amount, package, provider name, transaction references, and the account connected to the purchase. Sensitive payment details such as card numbers, card security codes, and mobile-money PINs are handled by the payment provider, not by Luo101.' },
+      { heading: 'Payment delays and provider issues', body: 'Some payments may take time to confirm because of mobile-network, bank, processor, or provider delays. If money leaves your account but access does not unlock, contact support@luo101.org with your Luo101 email, phone number used for payment, amount, date, and transaction reference.' },
+      { heading: 'Corrections and course changes', body: 'Luo101 may improve lessons, correct wording, update audio, add units, remove mistakes, and refine access rules over time. These changes are part of maintaining a careful language-learning product.' },
+      { heading: 'Limited liability', body: 'To the fullest extent allowed by law, Luo101 is not liable for indirect, incidental, special, or consequential losses, including lost profit, lost data, network failures, payment-provider downtime, device issues, or inability to access the service for reasons outside Luo101 control. Where Luo101 is legally responsible for a proven direct loss, our total liability is limited to the amount you paid for the affected Luo101 package.' },
+      { heading: 'Need help?', body: 'For billing, access, refunds, duplicate payments, or payment corrections, email support@luo101.org. Include enough details for us to trace the transaction quickly and treat the issue with care.' },
     ],
   },
 };
@@ -2329,7 +2334,9 @@ function PaymentUpgradeCard({
             <Text style={styles.profileSecondaryButtonText}>Refresh Access</Text>
           </Pressable>
         </View>
-        <Text style={styles.profileSyncText}>{session ? paymentMessage : 'Create or sign in to your profile before buying course access.'}</Text>
+        <Text style={[styles.profileSyncText, !session && styles.paymentErrorText]}>
+          {session ? paymentMessage : 'Create or sign in to your profile before buying course access.'}
+        </Text>
       </View> : null}
       {!isPaymentOpen ? <Text style={styles.paymentCollapsedText}>Tap to view plans and payment details.</Text> : null}
     </View>
@@ -4425,7 +4432,17 @@ const styles = StyleSheet.create({
   paymentForm: {
     gap: 10,
     marginTop: 14,
-  },  profileTrustCard: {
+  },
+  paymentErrorText: {
+    backgroundColor: '#FEF3F2',
+    borderColor: '#FDA29B',
+    borderRadius: 8,
+    borderWidth: 1,
+    color: '#B42318',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  profileTrustCard: {
     backgroundColor: '#FFFFFF',
     borderColor: '#DDE8D8',
     borderRadius: 8,
