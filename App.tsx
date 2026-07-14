@@ -282,6 +282,34 @@ function installWebFontStack() {
   documentRef.head.appendChild(style);
 }
 
+function getStableHash(value: string) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+}
+
+function getMixedChoiceOptions(options: string[], answer: string, seedText: string) {
+  const mixed = [...options]
+    .map((option, index) => ({
+      index,
+      option,
+      weight: getStableHash(`${seedText}:${option}:${index}`),
+    }))
+    .sort((first, second) => first.weight - second.weight || first.index - second.index)
+    .map(({ option }) => option);
+
+  if (mixed.length > 1 && mixed[0] === answer) {
+    const swapIndex = (getStableHash(`${seedText}:answer-offset`) % (mixed.length - 1)) + 1;
+    [mixed[0], mixed[swapIndex]] = [mixed[swapIndex], mixed[0]];
+  }
+
+  return mixed;
+}
+
 export default function App() {
   const { width } = useWindowDimensions();
   const isCompactShell = width < 720;
@@ -1775,6 +1803,9 @@ function PracticeScreen({
   onClear: () => void;
   onContinue: () => void;
 }) {
+  const mixedOptions = exercise.type === 'choice'
+    ? getMixedChoiceOptions(exercise.options, exercise.answer, `${unit.id}:${exercise.id}`)
+    : [];
   const remainingTiles = exercise.type === 'build'
     ? exercise.tiles
         .map((tile, index) => ({ index, tile }))
@@ -1795,7 +1826,7 @@ function PracticeScreen({
 
       {exercise.type === 'choice' ? (
         <View style={styles.optionGrid}>
-          {exercise.options.map((option) => (
+          {mixedOptions.map((option) => (
             <Pressable
               key={option}
               style={[
