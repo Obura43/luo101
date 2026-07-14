@@ -125,6 +125,7 @@ const BASIC_UNLOCKED_UNIT_IDS = new Set([
   'body-health',
   'stories-poems',
 ]);
+const DICTIONARY_UNIT_ID = 'dictionary-az';
 const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
   vision: {
     id: 'vision',
@@ -427,6 +428,10 @@ export default function App() {
   }
 
   function canAccessUnit(unitId: string, tier = entitlementTier) {
+    if (unitId === DICTIONARY_UNIT_ID) {
+      return Boolean(session);
+    }
+
     if (tier === 'full' || tier === 'consultation') {
       return true;
     }
@@ -746,6 +751,13 @@ export default function App() {
     openTab(nextTab);
   }
 
+  function openDictionary() {
+    requireProfile(
+      () => selectUnit(DICTIONARY_UNIT_ID, 'lesson'),
+      'Create or sign in to your Luo101 profile to use the searchable A-Z dictionary.',
+    );
+  }
+
   function continueLesson() {
     if (!hasAnswered) {
       return;
@@ -786,10 +798,21 @@ export default function App() {
               resizeMode="contain"
             />
           </View>
-          <View style={[styles.headerProgress, isCompactShell && styles.headerProgressCompact]}>
-            <Text style={styles.headerProgressText}>{xp} XP</Text>
-            <Text style={styles.headerProgressDot}>.</Text>
-            <Text style={styles.headerProgressText}>{streak} day streak</Text>
+          <View style={styles.topBarActions}>
+            <View style={[styles.headerProgress, isCompactShell && styles.headerProgressCompact]}>
+              <Text style={styles.headerProgressText}>{xp} XP</Text>
+              <Text style={styles.headerProgressDot}>.</Text>
+              <Text style={styles.headerProgressText}>{streak} day streak</Text>
+            </View>
+            <Pressable
+              accessibilityLabel="Open searchable Luo dictionary"
+              accessibilityRole="button"
+              onPress={openDictionary}
+              style={styles.dictionaryShortcutButton}
+            >
+              <View style={styles.searchIconCircle} />
+              <View style={styles.searchIconHandle} />
+            </Pressable>
           </View>
         </View>
       </View>
@@ -2630,7 +2653,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   topBarInnerCompact: {
-    paddingHorizontal: 24,
+    gap: 8,
+    paddingHorizontal: 20,
   },
   brandLockup: {
     flexShrink: 1,
@@ -2643,7 +2667,7 @@ const styles = StyleSheet.create({
   brandLockupCompact: {
     marginLeft: -24,
     minHeight: 54,
-    width: 330,
+    width: 280,
   },
   brandLogo: {
     height: 66,
@@ -2672,6 +2696,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
   },
+  topBarActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexShrink: 0,
+    gap: 10,
+  },
   headerProgress: {
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
@@ -2697,6 +2727,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '900',
     lineHeight: 14,
+  },
+  dictionaryShortcutButton: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 999,
+    borderWidth: 1,
+    height: 42,
+    justifyContent: 'center',
+    position: 'relative',
+    width: 42,
+  },
+  searchIconCircle: {
+    borderColor: '#0E6B4F',
+    borderRadius: 999,
+    borderWidth: 2,
+    height: 15,
+    marginBottom: 3,
+    marginRight: 3,
+    width: 15,
+  },
+  searchIconHandle: {
+    backgroundColor: '#0E6B4F',
+    borderRadius: 999,
+    height: 8,
+    position: 'absolute',
+    right: 12,
+    top: 24,
+    transform: [{ rotate: '-45deg' }],
+    width: 2,
   },
   stat: {
     alignItems: 'center',
