@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import {
   Image,
+  Modal,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -311,6 +312,8 @@ export default function App() {
   const [paymentMessage, setPaymentMessage] = useState('Choose the Luo101 path that fits your learning, then pay securely with M-Pesa.');
   const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
+  const [isSignupPromptVisible, setIsSignupPromptVisible] = useState(false);
+  const [hasSignupPromptShown, setHasSignupPromptShown] = useState(false);
 
   const unitIndex = Math.max(
     learningUnits.findIndex((unit) => unit.id === selectedUnitId),
@@ -420,6 +423,26 @@ export default function App() {
     setAuthMessage('You are signed in. Continuing where you left off.');
     action();
   }, [pendingAuthAction, session?.user.id]);
+
+  useEffect(() => {
+    if (session) {
+      setIsSignupPromptVisible(false);
+      return;
+    }
+
+    if (publicPageId || hasSignupPromptShown) {
+      return;
+    }
+
+    const promptTimer = setTimeout(() => {
+      setAuthMode('sign-up');
+      setAuthMessage('');
+      setIsSignupPromptVisible(true);
+      setHasSignupPromptShown(true);
+    }, 10000);
+
+    return () => clearTimeout(promptTimer);
+  }, [hasSignupPromptShown, publicPageId, session?.user.id]);
 
   useEffect(() => {
     if (!session) {
@@ -571,7 +594,7 @@ export default function App() {
   async function handleAuthSubmit() {
     if (!isSupabaseConfigured) {
       setAuthMessage('Supabase is not configured yet.');
-      return;
+      return false;
     }
 
     const email = authEmail.trim().toLowerCase();
@@ -581,17 +604,17 @@ export default function App() {
 
     if (!email || !password) {
       setAuthMessage('Add an email and password first.');
-      return;
+      return false;
     }
 
     if (authMode === 'sign-up' && email !== emailConfirm) {
       setAuthMessage('The two email addresses must match.');
-      return;
+      return false;
     }
 
     if (authMode === 'sign-up' && password !== passwordConfirm) {
       setAuthMessage('The two passwords must match.');
-      return;
+      return false;
     }
 
     setAuthMessage(authMode === 'sign-up' ? 'Creating your profile...' : 'Signing you in...');
@@ -605,7 +628,7 @@ export default function App() {
 
       if (result.error) {
         setAuthMessage(result.error.message);
-        return;
+        return false;
       }
 
       const activeSession = result.data.session;
@@ -615,34 +638,46 @@ export default function App() {
         setAuthPassword('');
         setAuthPasswordConfirm('');
         setAuthMessage('Profile created. You are signed in.');
-        return;
+        return true;
       }
 
       const signInResult = await supabase.auth.signInWithPassword({ email, password });
 
       if (signInResult.error) {
         setAuthMessage('Profile created, but Supabase email confirmation is still enabled. Turn off Confirm email, then sign in.');
-        return;
+        return false;
       }
 
       setSession(signInResult.data.session);
       setAuthPassword('');
       setAuthPasswordConfirm('');
       setAuthMessage('Profile created. You are signed in.');
-      return;
+      return true;
     }
 
     const result = await supabase.auth.signInWithPassword({ email, password });
 
     if (result.error) {
       setAuthMessage(result.error.message);
-      return;
+      return false;
     }
 
     setSession(result.data.session);
     setAuthPassword('');
     setAuthPasswordConfirm('');
     setAuthMessage('Signed in.');
+    return true;
+  }
+
+  async function handleSignupPromptSubmit() {
+    const didAuthenticate = await handleAuthSubmit();
+
+    if (!didAuthenticate) {
+      return;
+    }
+
+    setIsSignupPromptVisible(false);
+    openTab('profile');
   }
 
   async function handleSignOut() {
@@ -972,6 +1007,57 @@ export default function App() {
           onToggle={() => setIsPublicMenuOpen((current) => !current)}
         />
       </ScrollView>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setIsSignupPromptVisible(false)}
+        transparent
+        visible={!session && !publicPageId && isSignupPromptVisible}
+      >
+        <View style={styles.signupPromptOverlay}>
+          <View style={[styles.signupPromptPanel, isCompactShell && styles.signupPromptPanelCompact]}>
+            <View style={styles.signupPromptHeader}>
+              <View style={styles.signupPromptCopy}>
+                <Text style={styles.kicker}>Free Start</Text>
+                <Text style={styles.signupPromptTitle}>Get started for free</Text>
+              </View>
+              <Pressable
+                accessibilityLabel="Close signup prompt"
+                accessibilityRole="button"
+                onPress={() => setIsSignupPromptVisible(false)}
+                style={styles.signupPromptClose}
+              >
+                <Text style={styles.signupPromptCloseText}>x</Text>
+              </Pressable>
+            </View>
+            <ScrollView style={styles.signupPromptScroll}>
+              <SignupAuthCard
+                authDisplayName={authDisplayName}
+                authEmail={authEmail}
+                authEmailConfirm={authEmailConfirm}
+                authMessage={authMessage}
+                authMode={authMode}
+                authPassword={authPassword}
+                authPasswordConfirm={authPasswordConfirm}
+                isCloudConfigured={isSupabaseConfigured}
+                isOpen
+                label="Start your Luo101 profile"
+                syncStatus={syncStatus}
+                title="Get started for free"
+                body="Create your Luo101 profile to save progress, keep your Unit work, and continue learning Dholuo. Remember Unit one should remain free for all registered users."
+                onAuthDisplayNameChange={setAuthDisplayName}
+                onAuthEmailChange={setAuthEmail}
+                onAuthEmailConfirmChange={setAuthEmailConfirm}
+                onAuthModeChange={setAuthMode}
+                onAuthPasswordChange={setAuthPassword}
+                onAuthPasswordConfirmChange={setAuthPasswordConfirm}
+                onAuthSubmit={handleSignupPromptSubmit}
+                onOpenChange={() => undefined}
+              />
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       <View style={styles.nav}>
         <NavButton label="Learn" active={!publicPageId && tab === 'learn'} onPress={() => openTab('learn')} />
@@ -1977,6 +2063,158 @@ function PhrasebookScreen({
     </View>
   );
 }
+
+function SignupAuthCard({
+  authDisplayName,
+  authEmail,
+  authEmailConfirm,
+  authMessage,
+  authMode,
+  authPassword,
+  authPasswordConfirm,
+  body,
+  isCloudConfigured,
+  isOpen,
+  label,
+  syncStatus,
+  title,
+  onAuthDisplayNameChange,
+  onAuthEmailChange,
+  onAuthEmailConfirmChange,
+  onAuthModeChange,
+  onAuthPasswordChange,
+  onAuthPasswordConfirmChange,
+  onAuthSubmit,
+  onOpenChange,
+}: {
+  authDisplayName: string;
+  authEmail: string;
+  authEmailConfirm: string;
+  authMessage: string;
+  authMode: 'sign-in' | 'sign-up';
+  authPassword: string;
+  authPasswordConfirm: string;
+  body: string;
+  isCloudConfigured: boolean;
+  isOpen: boolean;
+  label: string;
+  syncStatus: string;
+  title: string;
+  onAuthDisplayNameChange: (value: string) => void;
+  onAuthEmailChange: (value: string) => void;
+  onAuthEmailConfirmChange: (value: string) => void;
+  onAuthModeChange: (value: 'sign-in' | 'sign-up') => void;
+  onAuthPasswordChange: (value: string) => void;
+  onAuthPasswordConfirmChange: (value: string) => void;
+  onAuthSubmit: () => void;
+  onOpenChange: (value: boolean) => void;
+}) {
+  return (
+    <View style={styles.profileSignupCard}>
+      <Text style={styles.cardLabel}>{label}</Text>
+      <Text style={styles.profileSignupTitle}>{title}</Text>
+      <Text style={styles.profileSignupText}>{body}</Text>
+      <View style={styles.profileAuthChoices}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isOpen && authMode === 'sign-up' }}
+          onPress={() => {
+            onAuthModeChange('sign-up');
+            onOpenChange(true);
+          }}
+          style={[styles.profileFoldButton, authMode === 'sign-up' && isOpen && styles.profileFoldButtonActive]}
+        >
+          <Text style={[styles.profileFoldButtonText, authMode === 'sign-up' && isOpen && styles.profileFoldButtonTextActive]}>Sign Up</Text>
+          <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-up' && isOpen && styles.profileFoldButtonTextActive]}>+</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isOpen && authMode === 'sign-in' }}
+          onPress={() => {
+            onAuthModeChange('sign-in');
+            onOpenChange(true);
+          }}
+          style={[styles.profileFoldButton, authMode === 'sign-in' && isOpen && styles.profileFoldButtonActive]}
+        >
+          <Text style={[styles.profileFoldButtonText, authMode === 'sign-in' && isOpen && styles.profileFoldButtonTextActive]}>Sign In</Text>
+          <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-in' && isOpen && styles.profileFoldButtonTextActive]}>+</Text>
+        </Pressable>
+      </View>
+
+      {isOpen ? (
+        <View style={styles.profileAuthPanel}>
+          {authMode === 'sign-up' ? (
+            <TextInput
+              accessibilityLabel="Display name"
+              autoCapitalize="words"
+              onChangeText={onAuthDisplayNameChange}
+              placeholder="Display name"
+              placeholderTextColor="#7A8A82"
+              style={styles.profileInput}
+              value={authDisplayName}
+            />
+          ) : null}
+          <TextInput
+            accessibilityLabel="Email address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+            onChangeText={onAuthEmailChange}
+            placeholder="Email address"
+            placeholderTextColor="#7A8A82"
+            style={styles.profileInput}
+            value={authEmail}
+          />
+          {authMode === 'sign-up' ? (
+            <TextInput
+              accessibilityLabel="Confirm email address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              onChangeText={onAuthEmailConfirmChange}
+              placeholder="Type email again"
+              placeholderTextColor="#7A8A82"
+              style={styles.profileInput}
+              value={authEmailConfirm}
+            />
+          ) : null}
+          <TextInput
+            accessibilityLabel="Password"
+            autoCapitalize="none"
+            onChangeText={onAuthPasswordChange}
+            placeholder="Password"
+            placeholderTextColor="#7A8A82"
+            secureTextEntry
+            style={styles.profileInput}
+            value={authPassword}
+          />
+          {authMode === 'sign-up' ? (
+            <TextInput
+              accessibilityLabel="Confirm password"
+              autoCapitalize="none"
+              onChangeText={onAuthPasswordConfirmChange}
+              placeholder="Type password again"
+              placeholderTextColor="#7A8A82"
+              secureTextEntry
+              style={styles.profileInput}
+              value={authPasswordConfirm}
+            />
+          ) : null}
+          <Pressable
+            accessibilityRole="button"
+            disabled={!isCloudConfigured}
+            onPress={onAuthSubmit}
+            style={[styles.profilePrimaryButton, !isCloudConfigured && styles.profileButtonDisabled]}
+          >
+            <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
+          </Pressable>
+          <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function ProfileScreen({
   authDisplayName,
   authEmail,
@@ -2083,108 +2321,29 @@ function ProfileScreen({
       <View>
         <Text style={styles.kicker}>Profile</Text>
         <Text style={styles.screenTitle}>Your Luo101 profile</Text>
-        <View style={styles.profileSignupCard}>
-          <Text style={styles.cardLabel}>Keep your learning with you</Text>
-          <Text style={styles.profileSignupTitle}>Join thousands of learners preserving the beautiful Luo language.</Text>
-          <Text style={styles.profileSignupText}>Create an account to save XP, streaks, completed units, and course access across devices.</Text>
-          <View style={styles.profileAuthChoices}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isAuthOpen && authMode === 'sign-up' }}
-              onPress={() => {
-                onAuthModeChange('sign-up');
-                setIsAuthOpen(true);
-              }}
-              style={[styles.profileFoldButton, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonActive]}
-            >
-              <Text style={[styles.profileFoldButtonText, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonTextActive]}>Sign Up</Text>
-              <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-up' && isAuthOpen && styles.profileFoldButtonTextActive]}>+</Text>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isAuthOpen && authMode === 'sign-in' }}
-              onPress={() => {
-                onAuthModeChange('sign-in');
-                setIsAuthOpen(true);
-              }}
-              style={[styles.profileFoldButton, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonActive]}
-            >
-              <Text style={[styles.profileFoldButtonText, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonTextActive]}>Sign In</Text>
-              <Text style={[styles.profileFoldButtonIcon, authMode === 'sign-in' && isAuthOpen && styles.profileFoldButtonTextActive]}>+</Text>
-            </Pressable>
-          </View>
-
-          {isAuthOpen ? (
-            <View style={styles.profileAuthPanel}>
-              {authMode === 'sign-up' ? (
-                <TextInput
-                  accessibilityLabel="Display name"
-                  autoCapitalize="words"
-                  onChangeText={onAuthDisplayNameChange}
-                  placeholder="Display name"
-                  placeholderTextColor="#7A8A82"
-                  style={styles.profileInput}
-                  value={authDisplayName}
-                />
-              ) : null}
-              <TextInput
-                accessibilityLabel="Email address"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                onChangeText={onAuthEmailChange}
-                placeholder="Email address"
-                placeholderTextColor="#7A8A82"
-                style={styles.profileInput}
-                value={authEmail}
-              />
-              {authMode === 'sign-up' ? (
-                <TextInput
-                  accessibilityLabel="Confirm email address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="email-address"
-                  onChangeText={onAuthEmailConfirmChange}
-                  placeholder="Type email again"
-                  placeholderTextColor="#7A8A82"
-                  style={styles.profileInput}
-                  value={authEmailConfirm}
-                />
-              ) : null}
-              <TextInput
-                accessibilityLabel="Password"
-                autoCapitalize="none"
-                onChangeText={onAuthPasswordChange}
-                placeholder="Password"
-                placeholderTextColor="#7A8A82"
-                secureTextEntry
-                style={styles.profileInput}
-                value={authPassword}
-              />
-              {authMode === 'sign-up' ? (
-                <TextInput
-                  accessibilityLabel="Confirm password"
-                  autoCapitalize="none"
-                  onChangeText={onAuthPasswordConfirmChange}
-                  placeholder="Type password again"
-                  placeholderTextColor="#7A8A82"
-                  secureTextEntry
-                  style={styles.profileInput}
-                  value={authPasswordConfirm}
-                />
-              ) : null}
-              <Pressable
-                accessibilityRole="button"
-                disabled={!isCloudConfigured}
-                onPress={onAuthSubmit}
-                style={[styles.profilePrimaryButton, !isCloudConfigured && styles.profileButtonDisabled]}
-              >
-                <Text style={styles.profilePrimaryButtonText}>{authMode === 'sign-up' ? 'Create Profile' : 'Sign In'}</Text>
-              </Pressable>
-              <Text style={styles.profileSyncText}>{authMessage || syncStatus}</Text>
-            </View>
-          ) : null}
-        </View>
+        <SignupAuthCard
+          authDisplayName={authDisplayName}
+          authEmail={authEmail}
+          authEmailConfirm={authEmailConfirm}
+          authMessage={authMessage}
+          authMode={authMode}
+          authPassword={authPassword}
+          authPasswordConfirm={authPasswordConfirm}
+          isCloudConfigured={isCloudConfigured}
+          isOpen={isAuthOpen}
+          label="Keep your learning with you"
+          syncStatus={syncStatus}
+          title="Join thousands of learners preserving the beautiful Luo language."
+          body="Create an account to save XP, streaks, completed units, and course access across devices."
+          onAuthDisplayNameChange={onAuthDisplayNameChange}
+          onAuthEmailChange={onAuthEmailChange}
+          onAuthEmailConfirmChange={onAuthEmailConfirmChange}
+          onAuthModeChange={onAuthModeChange}
+          onAuthPasswordChange={onAuthPasswordChange}
+          onAuthPasswordConfirmChange={onAuthPasswordConfirmChange}
+          onAuthSubmit={onAuthSubmit}
+          onOpenChange={setIsAuthOpen}
+        />
         <PaymentUpgradeCard
           entitlementTier={entitlementTier}
           isPaymentStarting={isPaymentStarting}
@@ -4340,6 +4499,62 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     lineHeight: 20,
     marginTop: 10,
+  },
+  signupPromptOverlay: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 37, 27, 0.54)',
+    flex: 1,
+    justifyContent: 'center',
+    padding: 18,
+  },
+  signupPromptPanel: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#F1C84B',
+    borderRadius: 8,
+    borderWidth: 1,
+    maxHeight: '92%',
+    maxWidth: 560,
+    padding: 14,
+    width: '100%',
+  },
+  signupPromptPanelCompact: {
+    maxHeight: '96%',
+    padding: 10,
+  },
+  signupPromptHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    padding: 4,
+  },
+  signupPromptScroll: {
+    maxHeight: '86%',
+  },
+  signupPromptCopy: {
+    flex: 1,
+  },
+  signupPromptTitle: {
+    color: '#10251B',
+    fontSize: 28,
+    fontWeight: '600',
+    lineHeight: 34,
+  },
+  signupPromptClose: {
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: 'center',
+    width: 38,
+  },
+  signupPromptCloseText: {
+    color: '#10251B',
+    fontSize: 18,
+    fontWeight: '600',
+    lineHeight: 20,
   },
   profileSignupBackdrop: {
     alignItems: 'center',
