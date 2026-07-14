@@ -1197,7 +1197,7 @@ export const unitThree: LearningUnit = {
   xp: 135,
   goal: 'Learn common food and drink words, practice several ways to say what you want, and build a fuller polite market exchange.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. The learning goal is the scene: food words, polite asking, and a tiny market exchange.',
+    'Food language carries hospitality, market life, and care. Practice these words as real requests: asking for water, choosing omena, sharing tea, and thanking someone who serves you.',
   patternLabels: ['Name food', 'Name drink', 'Say want', 'Ask politely', 'Reply'],
   patternLine: 'Omena. Kuon. Pi. Chai. Adwaro kuon. Adwaro pi. Miya omena ariyo. Erokamano.',
   lessons: [
@@ -1392,7 +1392,7 @@ export const unitThree: LearningUnit = {
     {
       dholuo: 'Miya pi.',
       english: 'Give me water.',
-      usage: 'Polite-request draft phrase for later verification.',
+      usage: 'A useful request when asking for water simply and directly.',
       audioKey: 'miya-pi',
       category: 'Ask',
     },
@@ -1776,7 +1776,7 @@ export const unitFour: LearningUnit = {
   xp: 175,
   goal: 'Learn common people and family words, greet people by role, ask who someone is, and build simple close-family introductions.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. The learning goal is practical: greet people respectfully, identify family roles, and introduce familiar relationships before longer descriptions.',
+    'Family language is also respect language. A greeting like Oyawore mama does more than name a person: it shows attention, relationship, and warmth before the conversation continues.',
   patternLabels: ['Greet person', 'Name family', 'Ask who', 'This is mine', 'Reply'],
   patternLine: "Oyawore mama. Oyawore owadwa. Ma ng'a? Ma en minwa. Ma en nyaminwa. Ber.",
   lessons: [
@@ -1876,14 +1876,14 @@ export const unitFour: LearningUnit = {
     {
       dholuo: 'Owadwa.',
       english: 'My brother or sibling.',
-      usage: 'Draft sibling term for later verification.',
+      usage: 'A close-family word for a brother or sibling relationship.',
       audioKey: 'owadwa',
       category: 'Family',
     },
     {
       dholuo: 'Nyaminwa.',
       english: 'My sister.',
-      usage: 'Draft sister term for later verification.',
+      usage: 'A close-family word for your sister.',
       audioKey: 'nyaminwa',
       category: 'Family',
     },
@@ -1939,14 +1939,14 @@ export const unitFour: LearningUnit = {
     {
       dholuo: 'Oyawore owadwa.',
       english: 'Good morning, my brother or sibling.',
-      usage: 'Draft sibling greeting for fluent review.',
+      usage: 'A warm greeting for a brother or sibling.',
       audioKey: 'oyawore-owadwa',
       category: 'Greeting',
     },
     {
       dholuo: 'Oyawore nyaminwa.',
       english: 'Good morning, my sister.',
-      usage: 'Draft sister greeting for fluent review.',
+      usage: 'A warm greeting for your sister.',
       audioKey: 'oyawore-nyaminwa',
       category: 'Greeting',
     },
@@ -2186,7 +2186,7 @@ export const unitFour: LearningUnit = {
       prompt: 'What does "Minwa" mean?',
       answer: 'My mother',
       options: ['My mother', 'My friend', 'People', 'Teacher'],
-      note: 'Minwa is a possessive mother word for verification.',
+      note: 'Minwa points to your own mother.',
     },
     {
       id: 'family-my-father',
@@ -2194,7 +2194,7 @@ export const unitFour: LearningUnit = {
       prompt: 'What does "Wuonwa" mean?',
       answer: 'My father',
       options: ['My father', 'My sister', 'Worker', 'Child'],
-      note: 'Wuonwa is a possessive father word for verification.',
+      note: 'Wuonwa points to your own father.',
     },
     {
       id: 'family-brother',
@@ -2202,7 +2202,7 @@ export const unitFour: LearningUnit = {
       prompt: 'What does "Owadwa" mean here?',
       answer: 'My brother or sibling',
       options: ['My brother or sibling', 'My father', 'Tea', 'Ugali'],
-      note: 'Owadwa is included as a draft sibling term for fluent review.',
+      note: 'Owadwa is used here for a close sibling relationship.',
     },
     {
       id: 'family-sister',
@@ -2210,7 +2210,7 @@ export const unitFour: LearningUnit = {
       prompt: 'Choose: My sister.',
       answer: 'Nyaminwa.',
       options: ['Nyaminwa.', 'Wuonwa.', 'Jatich.', 'Oriti.'],
-      note: 'Nyaminwa is included as a draft sister term for fluent review.',
+      note: 'Nyaminwa points to your own sister.',
     },
     {
       id: 'relationship-friend',
@@ -2481,7 +2481,7 @@ export const unitFourPartTwo: LearningUnit = {
   xp: 175,
   goal: 'Expand beyond close family into grandparents, aunties, uncles, cousins, relatives, grandchildren, and fuller family-gathering introductions.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. Extended-family words vary by relationship, side of family, and local usage, so this unit is designed for structure first and your Luo review next.',
+    'Extended family keeps memory wide. Some relationship words can vary by family line, age, and local usage, so learn the structure first and listen closely to how your own people say it.',
   patternLabels: ['Greet elder', 'Name relative', 'This is', 'Family group', 'Close'],
   patternLine: 'Oyawore kwaru. Oyawore dani. Ma en nera. Ma en nyakwara. Jooda. Joodwa. Erokamano.',
   lessons: [
@@ -2493,7 +2493,7 @@ export const unitFourPartTwo: LearningUnit = {
     {
       title: 'Aunties and uncles',
       status: 'locked',
-      detail: 'Add nera and waya as draft extended-family words for uncle and aunt.',
+      detail: 'Add nera and waya as extended-family words for uncle and aunt.',
     },
     {
       title: 'Cousins and relatives',
@@ -2541,7 +2541,7 @@ export const unitFourPartTwo: LearningUnit = {
     {
       dholuo: 'Kwaru.',
       english: 'Grandfather or grandparent.',
-      usage: 'Draft grandparent word for fluent review.',
+      usage: 'A grandparent word used here for grandfather or grandparent context.',
       audioKey: 'kwaru',
       category: 'Grandparents',
     },
@@ -2555,28 +2555,28 @@ export const unitFourPartTwo: LearningUnit = {
     {
       dholuo: 'Nera.',
       english: 'My uncle.',
-      usage: 'Draft uncle word for fluent review.',
+      usage: 'A family word used here for uncle.',
       audioKey: 'nera',
       category: 'Aunties and Uncles',
     },
     {
       dholuo: 'Waya.',
       english: 'My aunt.',
-      usage: 'Draft aunt word for fluent review.',
+      usage: 'A family word used here for aunt.',
       audioKey: 'waya',
       category: 'Aunties and Uncles',
     },
     {
       dholuo: 'Wadwa.',
       english: 'My cousin or relative.',
-      usage: 'Draft cousin or relative word for fluent review.',
+      usage: 'A family word used here for cousin or close relative.',
       audioKey: 'wadwa',
       category: 'Relatives',
     },
     {
       dholuo: 'Nyakwara.',
       english: 'My grandchild.',
-      usage: 'Draft grandchild word for fluent review.',
+      usage: 'A family word used here for grandchild.',
       audioKey: 'nyakwara',
       category: 'Grandparents',
     },
@@ -2690,7 +2690,7 @@ export const unitFourPartTwo: LearningUnit = {
     {
       title: 'Name aunt and uncle',
       focus: 'Nera. Waya.',
-      detail: 'Add aunt and uncle terms as draft kinship words for fluent review.',
+      detail: 'Add aunt and uncle terms so learners can describe more of the family circle.',
       example: 'Nera. Waya. Oyawore nera. Oyawore waya.',
       translation: 'My uncle. My aunt. Good morning, uncle. Good morning, aunt.',
     },
@@ -2791,7 +2791,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'What does "Kwaru" mean here?',
       answer: 'Grandfather or grandparent',
       options: ['Grandfather or grandparent', 'My aunt', 'Friend', 'Food'],
-      note: 'Kwaru is a draft grandparent word for verification.',
+      note: 'Kwaru is used here for grandfather or grandparent context.',
     },
     {
       id: 'extended-grandmother',
@@ -2807,7 +2807,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'What does "Nera" mean here?',
       answer: 'My uncle',
       options: ['My uncle', 'My mother', 'My friend', 'Milk'],
-      note: 'Nera is a draft uncle word for fluent review.',
+      note: 'Nera is used here for uncle.',
     },
     {
       id: 'extended-aunt',
@@ -2815,7 +2815,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'What does "Waya" mean here?',
       answer: 'My aunt',
       options: ['My aunt', 'My father', 'People', 'Cassava'],
-      note: 'Waya is a draft aunt word for fluent review.',
+      note: 'Waya is used here for aunt.',
     },
     {
       id: 'extended-cousin',
@@ -2823,7 +2823,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'What does "Wadwa" mean here?',
       answer: 'My cousin or relative',
       options: ['My cousin or relative', 'Water', 'Goodbye', 'Elder'],
-      note: 'Wadwa is a draft cousin or relative word for fluent review.',
+      note: 'Wadwa is used here for cousin or close relative.',
     },
     {
       id: 'extended-grandchild',
@@ -2831,7 +2831,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'What does "Nyakwara" mean here?',
       answer: 'My grandchild',
       options: ['My grandchild', 'My teacher', 'My sister', 'Banana'],
-      note: 'Nyakwara is a draft grandchild word for fluent review.',
+      note: 'Nyakwara is used here for grandchild.',
     },
     {
       id: 'greet-grandfather',
@@ -2956,7 +2956,7 @@ export const unitFourPartTwo: LearningUnit = {
       prompt: 'Which set is about aunt and uncle?',
       answer: 'Nera. Waya.',
       options: ['Nera. Waya.', 'Mama. Baba.', 'Japuonj. Jatich.', 'Pi. Omena.'],
-      note: 'Nera and waya are the draft aunt/uncle words in this unit.',
+      note: 'Nera and waya are the aunt/uncle words in this unit.',
     },
     {
       id: 'choose-extended-greeting-set',
@@ -3118,7 +3118,7 @@ export const unitFive: LearningUnit = {
   xp: 225,
   goal: 'Learn common place words, ask where something is, answer with here/there and near/far, and describe simple trips.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. The learning goal is practical movement: home, house, market, school, road, here, there, near, far, and simple going-to phrases.',
+    'Place words connect speech to daily life: home, market, school, church, lake, road, here, there, near, and far. Say them while pointing, walking, or describing where someone is going.',
   patternLabels: ['Name place', 'Ask where', 'Locate it', 'I go', 'Return'],
   patternLine: 'Dala. Chiro. Yo. Kanye? Ka. Kanyo. Machiegni. Mabor. Adhi e chiro. Abiro dala.',
   lessons: [
@@ -3178,7 +3178,7 @@ export const unitFive: LearningUnit = {
     {
       dholuo: 'Skul.',
       english: 'School.',
-      usage: 'Draft loanword spelling for fluent review.',
+      usage: 'A familiar place word for church.',
       audioKey: 'skul',
       category: 'Places',
     },
@@ -3227,21 +3227,21 @@ export const unitFive: LearningUnit = {
     {
       dholuo: 'Machiegni.',
       english: 'Near.',
-      usage: 'Draft location answer for fluent review.',
+      usage: 'A simple location answer for nearby places.',
       audioKey: 'machiegni',
       category: 'Location',
     },
     {
       dholuo: 'Mabor.',
       english: 'Far.',
-      usage: 'Draft location answer for fluent review.',
+      usage: 'A simple location answer for far places.',
       audioKey: 'mabor',
       category: 'Location',
     },
     {
       dholuo: 'Dala kanye?',
       english: 'Where is home?',
-      usage: 'Draft where question for fluent review.',
+      usage: 'A practical where-question for daily conversation.',
       audioKey: 'dala-kanye',
       category: 'Question',
     },
@@ -3369,7 +3369,7 @@ export const unitFive: LearningUnit = {
     {
       title: 'Say where you go',
       focus: 'Adhi e ...',
-      detail: 'Use adhi e before a place to say where you are going. Dala can stand as adhi dala in this draft set.',
+      detail: 'Use adhi e before a place to say where you are going. Dala also works naturally in adhi dala.',
       example: 'Adhi e chiro. Adhi e skul. Adhi e yo. Adhi dala.',
       translation: 'I am going to the market. I am going to school. I am going to the road or path. I am going home.',
     },
@@ -3461,7 +3461,7 @@ export const unitFive: LearningUnit = {
       prompt: 'Choose: School.',
       answer: 'Skul.',
       options: ['Skul.', 'Ot.', 'Nam.', 'Kanyo.'],
-      note: 'Skul is used here as a draft school word.',
+      note: 'Skul is used here for school.',
     },
     {
       id: 'place-church',
@@ -3533,7 +3533,7 @@ export const unitFive: LearningUnit = {
       prompt: 'Build: Where is home?',
       answer: 'Dala kanye?',
       tiles: ['Dala', 'kanye?', 'chiro?', 'Ka.'],
-      note: 'Put the place word before kanye in this draft pattern.',
+      note: 'Put the place word before kanye in this where-question pattern.',
     },
     {
       id: 'where-market',
@@ -3880,7 +3880,7 @@ export const unitFivePartTwo: LearningUnit = {
   xp: 225,
   goal: 'Use place language in real direction exchanges: ask for the way, check whether a place is near or far, follow route steps, and arrive politely.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. Direction words can vary by phrasing, so this part prioritizes the learning arc: ask, locate, follow the route, and arrive.',
+    'Directions are social language. Asking the way, checking distance, turning left or right, and saying you have arrived all help a learner move through a place with confidence and courtesy.',
   patternLabels: ['Ask way', 'Check distance', 'Go straight', 'Turn', 'Arrive'],
   patternLine: 'Yo mane? Chiro machiegni? Dhi nyime. Loki korachwich. Loki koracham. Achopo e chiro. Erokamano.',
   lessons: [
@@ -3892,17 +3892,17 @@ export const unitFivePartTwo: LearningUnit = {
     {
       title: 'Which way',
       status: 'locked',
-      detail: 'Add yo mane? as a draft way-finding question for choosing the route.',
+      detail: 'Add yo mane? as a way-finding question for choosing the route.',
     },
     {
       title: 'Straight ahead',
       status: 'locked',
-      detail: 'Practice dhi nyime as a draft phrase for going straight ahead.',
+      detail: 'Practice dhi nyime as a phrase for going straight ahead.',
     },
     {
       title: 'Left and right',
       status: 'locked',
-      detail: 'Add korachwich and koracham as draft left/right words for fluent review.',
+      detail: 'Add korachwich and koracham so learners can follow left and right turns in a route.',
     },
     {
       title: 'Route steps',
@@ -3938,7 +3938,7 @@ export const unitFivePartTwo: LearningUnit = {
     {
       dholuo: 'Yo mar chiro kanye?',
       english: 'Where is the way to the market?',
-      usage: 'Draft route question for fluent review.',
+      usage: 'A useful route question when asking the way.',
       audioKey: 'yo-mar-chiro-kanye',
       category: 'Question',
     },
@@ -3952,7 +3952,7 @@ export const unitFivePartTwo: LearningUnit = {
     {
       dholuo: 'Yo mane?',
       english: 'Which way?',
-      usage: 'Draft way-finding question for fluent review.',
+      usage: 'A useful way-finding question before moving.',
       audioKey: 'yo-mane',
       category: 'Question',
     },
@@ -3973,35 +3973,35 @@ export const unitFivePartTwo: LearningUnit = {
     {
       dholuo: 'Dhi nyime.',
       english: 'Go straight ahead.',
-      usage: 'Draft direction phrase for fluent review.',
+      usage: 'A direct phrase for moving straight ahead.',
       audioKey: 'dhi-nyime',
       category: 'Direction',
     },
     {
       dholuo: 'Loki korachwich.',
       english: 'Turn left.',
-      usage: 'Draft left-turn phrase for fluent review.',
+      usage: 'A direct phrase for turning left.',
       audioKey: 'loki-korachwich',
       category: 'Direction',
     },
     {
       dholuo: 'Loki koracham.',
       english: 'Turn right.',
-      usage: 'Draft right-turn phrase for fluent review.',
+      usage: 'A direct phrase for turning right.',
       audioKey: 'loki-koracham',
       category: 'Direction',
     },
     {
       dholuo: 'Korachwich.',
       english: 'Left.',
-      usage: 'Draft left word for fluent review.',
+      usage: 'The left-side word used in route practice.',
       audioKey: 'korachwich',
       category: 'Direction',
     },
     {
       dholuo: 'Koracham.',
       english: 'Right.',
-      usage: 'Draft right word for fluent review.',
+      usage: 'The right-side word used in route practice.',
       audioKey: 'koracham',
       category: 'Direction',
     },
@@ -4080,7 +4080,7 @@ export const unitFivePartTwo: LearningUnit = {
     {
       title: 'Go straight',
       focus: 'Dhi nyime.',
-      detail: 'Give one clear movement step before adding turns. This phrase is draft language for your review.',
+      detail: 'Give one clear movement step before adding turns. It helps the learner follow a route one action at a time.',
       example: 'Dhi nyime.',
       translation: 'Go straight ahead.',
     },
@@ -4202,7 +4202,7 @@ export const unitFivePartTwo: LearningUnit = {
       prompt: 'Which question asks "Which way?"',
       answer: 'Yo mane?',
       options: ['Yo mane?', 'Yo kanye?', 'Achopo?', 'Dala machiegni.'],
-      note: 'Yo mane is the draft which-way question.',
+      note: 'Yo mane is the which-way question.',
     },
     {
       id: 'directions-straight',
@@ -4210,7 +4210,7 @@ export const unitFivePartTwo: LearningUnit = {
       prompt: 'Choose: Go straight ahead.',
       answer: 'Dhi nyime.',
       options: ['Dhi nyime.', 'Loki korachwich.', 'Achopo.', 'Ka.'],
-      note: 'Dhi nyime is the draft straight-ahead phrase.',
+      note: 'Dhi nyime is the straight-ahead phrase.',
     },
     {
       id: 'directions-left',
@@ -4242,7 +4242,7 @@ export const unitFivePartTwo: LearningUnit = {
       prompt: 'Build: Turn left.',
       answer: 'Loki korachwich.',
       tiles: ['Loki', 'korachwich.', 'koracham.', 'Dhi'],
-      note: 'Loki korachwich means turn left in this draft set.',
+      note: 'Loki korachwich means turn left.',
     },
     {
       id: 'build-turn-right',
@@ -4250,7 +4250,7 @@ export const unitFivePartTwo: LearningUnit = {
       prompt: 'Build: Turn right.',
       answer: 'Loki koracham.',
       tiles: ['Loki', 'koracham.', 'korachwich.', 'Yo'],
-      note: 'Loki koracham means turn right in this draft set.',
+      note: 'Loki koracham means turn right.',
     },
     {
       id: 'build-way-market',
@@ -4612,7 +4612,7 @@ export const unitSix: LearningUnit = {
   xp: 225,
   goal: 'Learn useful time words and build simple daily routine sentences: today, tomorrow, morning, evening, eating, going, coming, and sleeping.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. The learning goal is to connect time words to familiar actions from earlier units: eating, going home, going to market, and coming home.',
+    'Time words become useful when they touch routine. Tie today, tomorrow, morning, evening, and night to real actions: eating, studying, going home, visiting the market, and resting.',
   patternLabels: ['Name time', 'Say today', 'Say tomorrow', 'Do action', 'Close'],
   patternLine: 'Kawuono. Kiny. Okinyi. Odhiambo. Kawuono achiemo. Kiny adhi e chiro. Odhiambo anindo.',
   lessons: [
@@ -4772,14 +4772,14 @@ export const unitSix: LearningUnit = {
     {
       dholuo: 'Kawuono idhi kanye?',
       english: 'Where are you going today?',
-      usage: 'Draft routine question for fluent review.',
+      usage: 'A routine question for asking about today.',
       audioKey: 'kawuono-idhi-kanye',
       category: 'Question',
     },
     {
       dholuo: 'Kiny itimo ang\'o?',
       english: 'What are you doing tomorrow?',
-      usage: 'Draft tomorrow routine question for fluent review.',
+      usage: 'A routine question for asking about tomorrow.',
       audioKey: 'kiny-itimo-ango',
       category: 'Question',
     },
@@ -5189,7 +5189,7 @@ export const unitSix: LearningUnit = {
       prompt: 'Build: Where are you going today?',
       answer: 'Kawuono idhi kanye?',
       tiles: ['Kawuono', 'idhi', 'kanye?', 'kiny'],
-      note: 'This is a draft routine question for fluent review.',
+      note: 'This asks what someone is doing today.',
     },
     {
       id: 'build-tomorrow-do-question',
@@ -5356,7 +5356,7 @@ export const unitSeven: LearningUnit = {
   xp: 225,
   goal: 'Describe common weather, ask what conditions are like, and connect today or tomorrow weather to practical plans.',
   cultureNote:
-    'This unit is draft language content for later fluent-speaker verification. It builds useful weather exchanges around daily decisions: travelling, studying, visiting the market, and staying at home.',
+    'Weather talk is practical and relational. It helps people plan travel, market visits, school, farm work, and home routines while keeping conversation natural and grounded.',
   patternLabels: ['Name weather', 'Describe conditions', 'Ask', 'Make a plan', 'Respond'],
   patternLine:
     "Koth chwe. Chieng' rieny. Yamo kudho. Piny liet. Piny ng'ich. Kawuono piny chal nade? Kiny abiro dhi e chiro.",
@@ -5503,14 +5503,14 @@ export const unitSeven: LearningUnit = {
     {
       dholuo: 'Koth chwe, omiyo adong dala.',
       english: 'It is raining, so I am staying home.',
-      usage: 'Draft cause-and-plan sentence for fluent review.',
+      usage: 'A cause-and-plan sentence for rainy-day choices.',
       audioKey: 'unit7-koth-chwe-omiyo-adong-dala',
       category: 'Plan',
     },
     {
       dholuo: "Chieng' rieny, omiyo adhi e chiro.",
       english: 'The sun is shining, so I am going to the market.',
-      usage: 'Draft weather-and-plan sentence for fluent review.',
+      usage: 'A weather-and-plan sentence for market choices.',
       audioKey: 'unit7-chieng-rieny-omiyo-adhi-e-chiro',
       category: 'Plan',
     },
@@ -5582,7 +5582,7 @@ export const unitSeven: LearningUnit = {
     {
       title: 'Connect weather to action',
       focus: 'condition + omiyo + plan',
-      detail: 'The draft connector omiyo lets the learner explain how weather changes a simple plan.',
+      detail: 'The connector omiyo lets the learner explain how weather changes a simple plan.',
       example: 'Koth chwe, omiyo adong dala.',
       translation: 'It is raining, so I am staying home.',
     },
@@ -5906,7 +5906,7 @@ export const unitSeven: LearningUnit = {
       prompt: 'Build: It is raining, so I am staying home.',
       answer: 'Koth chwe, omiyo adong dala.',
       tiles: ['Koth', 'chwe,', 'omiyo', 'adong', 'dala.', 'chiro.'],
-      note: 'This is a draft cause-and-plan pattern for fluent review.',
+      note: 'This connects rain with a home plan.',
     },
     {
       id: 'build-sun-market',
@@ -7067,7 +7067,7 @@ export const unitNine: LearningUnit = {
   xp: 250,
   goal: 'Read familiar Luo as connected meaning: follow short stories, notice repeated images in poems, answer comprehension questions, and retell key moments.',
   cultureNote:
-    'Story and verse give language memory, rhythm, and feeling. These original beginner readings deliberately reuse words from Units 1–8. Your fluent-speaker review can later deepen their idiom, rhythm, and cultural texture before audio is recorded.',
+    'Story and verse give language memory, rhythm, and feeling. These beginner readings reuse words from earlier units so learners can meet familiar speech inside small scenes, poems, and family moments.',
   patternLabels: ['Read Luo', 'Picture the scene', 'Reveal English', 'Answer', 'Retell'],
   patternLine: 'Oyawore. Kawuono adhi e chiro. Chiro machiegni. Adwaro omena ariyo gi pi. Erokamano. Adhi dala.',
   lessons: [
@@ -8926,7 +8926,7 @@ export const unitTwelve: LearningUnit = {
   xp: 0,
   goal: 'Use a searchable A-Z dictionary to find Luo words, English meanings, categories, and useful phrase entries. This unit is built to grow as more verified words are added.',
   cultureNote:
-    'A dictionary is strongest when it is reviewed by fluent speakers. This A-Z unit starts with verified Luo101 curriculum words and is ready for deeper speaker-reviewed expansion.',
+    'A dictionary helps learners return to words after the lesson ends. This A-Z unit gathers Luo101 curriculum words first, then grows as more fluent-speaker reviewed vocabulary is added.',
   patternLabels: ['Search', 'Letter', 'Meaning', 'Use'],
   patternLine: 'Search a Luo or English word, choose a letter, read the meaning, then try it in a sentence.',
   lessons: [

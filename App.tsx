@@ -87,31 +87,44 @@ const defaultUnitProgress: UnitProgress = {
 const PAYMENT_PACKAGES: CoursePackage[] = [
   {
     id: 'basic',
-    title: 'Basic Course',
+    title: 'Foundation Course',
     priceKes: 799,
     tier: 'basic',
-    summary: 'Start strong with the core beginner path.',
-    unlocks: ['Units 1-4', 'Starter practice', 'Starter phrase audio'],
+    summary: 'Begin with the everyday Dholuo that helps you greet, count, ask, move, read, and speak with confidence.',
+    unlocks: ['Units 1-9 included', 'Practice drills and phrase audio', 'Stories, poems, and culture notes'],
   },
   {
     id: 'full',
-    title: 'Full Course',
+    title: 'Complete Course',
     priceKes: 1500,
     tier: 'full',
-    summary: 'Unlock the complete Luo101 self-paced course.',
-    unlocks: ['All units', 'All practice', 'Phrase audio', 'Dictionary and readings'],
+    summary: 'Go beyond the foundation with romance, core sentence words, the A-Z dictionary, and every self-paced lesson.',
+    unlocks: ['All current and upcoming self-paced units', 'All practice and phrase audio', 'Dictionary, readings, and future course refinements'],
   },
   {
     id: 'consultation',
-    title: 'Full Course + Live Consultation',
+    title: 'Complete Course + Live Guidance',
     priceKes: 6000,
     tier: 'consultation',
-    summary: 'Learn everything, then get personal support.',
-    unlocks: ['Everything in Full Course', 'Live consultation', 'Manual support via support@luo101.org'],
+    summary: 'Pair the full Luo101 course with personal guidance for pronunciation, confidence, and cultural context.',
+    unlocks: ['Everything in Complete Course', 'Live consultation support', 'Priority help via support@luo101.org'],
   },
 ];
 
-const BASIC_UNLOCKED_UNIT_COUNT = 4;
+const BASIC_UNLOCKED_UNIT_IDS = new Set([
+  'greetings',
+  'counting',
+  'counting-use',
+  'food-market',
+  'people-family',
+  'extended-family',
+  'places-movement',
+  'directions-travel',
+  'time-routines',
+  'weather-plans',
+  'body-health',
+  'stories-poems',
+]);
 const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
   vision: {
     id: 'vision',
@@ -188,6 +201,9 @@ const PUBLIC_PAGES: Record<PublicPageId, PublicPage> = {
     intro: 'Luo101 uses one-time course payments to support the work of building, reviewing, recording, and preserving a beautiful living language.',
     sections: [
       { heading: 'One-time course access', body: 'Luo101 course packages are one-time purchases, not recurring subscriptions. The package shown at checkout is the package connected to your Luo101 account after payment is confirmed.' },
+      { heading: 'Foundation Course', body: 'The Foundation Course opens Units 1-9, giving learners a strong path through greetings, counting, food, family, places, directions, time, weather, health, stories, poems, phrase audio, and culture notes.' },
+      { heading: 'Complete Course', body: 'The Complete Course unlocks every current self-paced unit, including romance, core sentence words, the A-Z dictionary, readings, phrase audio, and future self-paced course refinements.' },
+      { heading: 'Complete Course + Live Guidance', body: 'The guidance package includes Complete Course access plus personal support for pronunciation, confidence, and cultural context.' },
       { heading: 'Payment methods', body: 'M-Pesa payments are processed through PayHero. Card payments such as Visa or Mastercard may be added through secure third-party processors as Luo101 grows.' },
       { heading: 'Access after payment', body: 'After a successful payment, Luo101 saves a course entitlement to your signed-in profile. That entitlement unlocks the lessons, practice, phrase audio, readings, and course areas included in the package you selected.' },
       { heading: 'Keep your account email correct', body: 'Course access is tied to the account used at the time of purchase. Before paying, sign in with the email you want to keep using for Luo101.' },
@@ -265,7 +281,7 @@ export default function App() {
   const [entitlementTier, setEntitlementTier] = useState<EntitlementTier>('none');
   const [paymentPhone, setPaymentPhone] = useState('');
   const [selectedPaymentPackageId, setSelectedPaymentPackageId] = useState<CoursePackage['id']>('full');
-  const [paymentMessage, setPaymentMessage] = useState('Choose a course package and pay securely with M-Pesa.');
+  const [paymentMessage, setPaymentMessage] = useState('Choose the Luo101 path that fits your learning, then pay securely with M-Pesa.');
   const [isPaymentStarting, setIsPaymentStarting] = useState(false);
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
 
@@ -410,18 +426,13 @@ export default function App() {
     writeProgress(progress);
   }
 
-  function getUnitIndex(unitId: string) {
-    return learningUnits.findIndex((item) => item.id === unitId);
-  }
-
   function canAccessUnit(unitId: string, tier = entitlementTier) {
     if (tier === 'full' || tier === 'consultation') {
       return true;
     }
 
     if (tier === 'basic') {
-      const index = getUnitIndex(unitId);
-      return index >= 0 && index < BASIC_UNLOCKED_UNIT_COUNT;
+      return BASIC_UNLOCKED_UNIT_IDS.has(unitId);
     }
 
     return false;
@@ -663,11 +674,16 @@ export default function App() {
       return;
     }
 
-    const unitIndexForMessage = getUnitIndex(unitId);
-    const basicMessage = unitIndexForMessage >= BASIC_UNLOCKED_UNIT_COUNT
-      ? 'This unit is part of the Full Course. Choose Full Course or Consultation to continue.'
-      : 'Choose a Luo101 course package to unlock lessons, practice, and phrase audio.';
-    setPaymentMessage(basicMessage);
+    const lockedUnit = learningUnits.find((item) => item.id === unitId);
+    const lockedLabel = lockedUnit?.unitLabel ?? lockedUnit?.title ?? 'This unit';
+
+    if (entitlementTier === 'basic') {
+      setSelectedPaymentPackageId('full');
+      setPaymentMessage(`${lockedLabel} is beyond the Foundation Course. Upgrade to the Complete Course to unlock Units 10-12, including romance, the A-Z dictionary, and every future self-paced course update.`);
+    } else {
+      setPaymentMessage('Choose a Luo101 course package to unlock lessons, practice, phrase audio, readings, and culture notes.');
+    }
+
     openTab('profile');
   }
 
@@ -1101,7 +1117,7 @@ function LearnScreen({
 
       <View style={[styles.learnBottomGrid, isCompact && styles.learnBottomGridCompact]}>
         <View style={styles.cultureCard}>
-          <Text style={styles.cardLabel}>Culture Note</Text>
+          <Text style={styles.cardLabel}>Culture & Usage Note</Text>
           <Text style={styles.cultureText}>{unit.cultureNote}</Text>
         </View>
         <View style={styles.cultureCard}>
@@ -2253,17 +2269,23 @@ function PaymentUpgradeCard({
   const [isPaymentOpen, setIsPaymentOpen] = useState(entitlementTier === 'none');
   const selectedPackage = packages.find((item) => item.id === selectedPackageId) ?? packages[1];
   const hasActiveAccess = entitlementTier !== 'none';
+  const hasUpgradePrompt = paymentMessage.toLowerCase().includes('upgrade');
   useEffect(() => {
+    if (hasUpgradePrompt) {
+      setIsPaymentOpen(true);
+      return;
+    }
+
     if (hasActiveAccess) {
       setIsPaymentOpen(false);
     }
-  }, [hasActiveAccess]);
+  }, [hasActiveAccess, hasUpgradePrompt]);
   const tierLabel = entitlementTier === 'consultation'
-    ? 'Full Course + Live Consultation'
+    ? 'Complete Course + Live Guidance'
     : entitlementTier === 'full'
-      ? 'Full Course'
+      ? 'Complete Course'
       : entitlementTier === 'basic'
-        ? 'Basic Course'
+        ? 'Foundation Course'
         : 'No paid course yet';
 
   return (
@@ -2334,7 +2356,7 @@ function PaymentUpgradeCard({
             <Text style={styles.profileSecondaryButtonText}>Refresh Access</Text>
           </Pressable>
         </View>
-        <Text style={[styles.profileSyncText, !session && styles.paymentErrorText]}>
+        <Text style={[styles.profileSyncText, (!session || hasUpgradePrompt) && styles.paymentErrorText]}>
           {session ? paymentMessage : 'Create or sign in to your profile before buying course access.'}
         </Text>
       </View> : null}
@@ -2515,7 +2537,7 @@ function PublicPageScreen({ page, onBack }: { page: PublicPage; onBack: () => vo
           </View>
         ))}
       </View>
-      <Text style={styles.publicFinePrint}>Last updated: July 13, 2026. These pages are a practical first version and should be reviewed before payments go live.</Text>
+      <Text style={styles.publicFinePrint}>Last updated: July 14, 2026. These pages are practical learner-facing policies and should continue to be reviewed as Luo101 grows.</Text>
     </View>
   );
 }

@@ -8,9 +8,9 @@ type CoursePackage = {
 };
 
 const PACKAGES: Record<string, CoursePackage> = {
-  basic: { id: 'basic', name: 'Luo101 Basic Course', amountKes: 799, tier: 'basic' },
-  full: { id: 'full', name: 'Luo101 Full Course', amountKes: 1500, tier: 'full' },
-  consultation: { id: 'consultation', name: 'Luo101 Full Course + Live Consultation', amountKes: 6000, tier: 'consultation' },
+  basic: { id: 'basic', name: 'Luo101 Foundation Course', amountKes: 799, tier: 'basic' },
+  full: { id: 'full', name: 'Luo101 Complete Course', amountKes: 1500, tier: 'full' },
+  consultation: { id: 'consultation', name: 'Luo101 Complete Course + Live Guidance', amountKes: 6000, tier: 'consultation' },
 };
 
 const corsHeaders = {
