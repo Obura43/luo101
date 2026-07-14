@@ -798,7 +798,7 @@ export default function App() {
               resizeMode="contain"
             />
           </View>
-          <View style={styles.topBarActions}>
+          <View style={[styles.topBarActions, isCompactShell && styles.topBarActionsCompact]}>
             <View style={[styles.headerProgress, isCompactShell && styles.headerProgressCompact]}>
               <Text style={styles.headerProgressText}>{xp} XP</Text>
               <Text style={styles.headerProgressDot}>.</Text>
@@ -810,8 +810,7 @@ export default function App() {
               onPress={openDictionary}
               style={styles.dictionaryShortcutButton}
             >
-              <View style={styles.searchIconCircle} />
-              <View style={styles.searchIconHandle} />
+              <Text style={styles.dictionaryShortcutIcon}>⌕</Text>
             </Pressable>
           </View>
         </View>
@@ -2654,7 +2653,9 @@ const styles = StyleSheet.create({
   },
   topBarInnerCompact: {
     gap: 8,
+    minHeight: 54,
     paddingHorizontal: 20,
+    position: 'relative',
   },
   brandLockup: {
     flexShrink: 1,
@@ -2667,7 +2668,7 @@ const styles = StyleSheet.create({
   brandLockupCompact: {
     marginLeft: -24,
     minHeight: 54,
-    width: 280,
+    width: 240,
   },
   brandLogo: {
     height: 66,
@@ -2677,9 +2678,9 @@ const styles = StyleSheet.create({
   },
   brandLogoCompact: {
     height: 54,
-    marginLeft: -54,
-    maxWidth: 330,
-    width: 330,
+    marginLeft: -48,
+    maxWidth: 300,
+    width: 300,
   },
   brand: {
     color: '#10251B',
@@ -2701,6 +2702,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexShrink: 0,
     gap: 10,
+    zIndex: 3,
+  },
+  topBarActionsCompact: {
+    position: 'absolute',
+    right: 20,
+    top: 6,
+    zIndex: 3,
   },
   headerProgress: {
     alignItems: 'center',
@@ -2738,25 +2746,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     position: 'relative',
     width: 42,
+    zIndex: 4,
   },
-  searchIconCircle: {
-    borderColor: '#0E6B4F',
-    borderRadius: 999,
-    borderWidth: 2,
-    height: 15,
-    marginBottom: 3,
-    marginRight: 3,
-    width: 15,
-  },
-  searchIconHandle: {
-    backgroundColor: '#0E6B4F',
-    borderRadius: 999,
-    height: 8,
-    position: 'absolute',
-    right: 12,
-    top: 24,
-    transform: [{ rotate: '-45deg' }],
-    width: 2,
+  dictionaryShortcutIcon: {
+    color: '#0E6B4F',
+    fontSize: 26,
+    fontWeight: '900',
+    lineHeight: 28,
   },
   stat: {
     alignItems: 'center',
