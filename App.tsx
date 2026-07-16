@@ -71,9 +71,18 @@ type ProgressRecord = {
   unit_progress: Record<string, UnitProgress>;
 };
 
+type ReferralStats = {
+  code: string;
+  link: string;
+  totalReferrals: number;
+  pendingKes: number;
+  paidKes: number;
+};
+
 type StorageLike = {
   getItem: (key: string) => string | null;
   setItem: (key: string, value: string) => void;
+  removeItem?: (key: string) => void;
 };
 type DocumentLike = {
   title: string;
@@ -81,8 +90,18 @@ type DocumentLike = {
   createElement?: (tagName: string) => { id?: string; textContent?: string };
   getElementById?: (id: string) => unknown;
 };
+type LocationLike = {
+  href?: string;
+  origin?: string;
+  search?: string;
+};
+type NavigatorLike = {
+  clipboard?: { writeText: (value: string) => Promise<void> };
+};
 
 const STORAGE_KEY = 'luo101-progress-v1';
+const REFERRAL_STORAGE_KEY = 'luo101-referral-code';
+const REFERRAL_COMMISSION_KES = 200;
 const defaultUnitProgress: UnitProgress = {
   correctExerciseIds: [],
   mistakes: 0,
@@ -254,6 +273,86 @@ function writeProgress(progress: SavedProgress) {
   storage.setItem(STORAGE_KEY, JSON.stringify(progress));
 }
 
+function normalizeReferralCode(value: string) {
+  return value.replace(/[^a-z0-9]/gi, '').toUpperCase().slice(0, 24);
+}
+
+function getLocation() {
+  const candidate = globalThis as typeof globalThis & { location?: LocationLike };
+  return candidate.location ?? null;
+}
+
+function getReferralBaseUrl() {
+  const location = getLocation();
+  return location?.origin || 'https://luo101.org';
+}
+
+function getStoredReferralCode() {
+  const storage = getStorage();
+
+  if (!storage) {
+    return '';
+  }
+
+  return normalizeReferralCode(storage.getItem(REFERRAL_STORAGE_KEY) ?? '');
+}
+
+function storeReferralCode(code: string) {
+  const normalizedCode = normalizeReferralCode(code);
+  const storage = getStorage();
+
+  if (!storage || !normalizedCode) {
+    return '';
+  }
+
+  storage.setItem(REFERRAL_STORAGE_KEY, normalizedCode);
+  return normalizedCode;
+}
+
+function clearStoredReferralCode() {
+  const storage = getStorage();
+  storage?.removeItem?.(REFERRAL_STORAGE_KEY);
+}
+
+function captureReferralCodeFromUrl() {
+  const location = getLocation();
+  const search = location?.search ?? '';
+
+  if (!search) {
+    return '';
+  }
+
+  try {
+    const referralCode = new URLSearchParams(search).get('ref') ?? '';
+    return referralCode ? storeReferralCode(referralCode) : '';
+  } catch {
+    return '';
+  }
+}
+
+function createReferralCode(userId: string) {
+  return `LUO${userId.replace(/-/g, '').slice(0, 10).toUpperCase()}`;
+}
+
+function createReferralLink(code: string) {
+  return `${getReferralBaseUrl()}/?ref=${encodeURIComponent(code)}&signup=1`;
+}
+
+async function copyTextToClipboard(value: string) {
+  const candidate = globalThis as typeof globalThis & { navigator?: NavigatorLike };
+
+  if (!candidate.navigator?.clipboard) {
+    return false;
+  }
+
+  try {
+    await candidate.navigator.clipboard.writeText(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function setDocumentTitle(title: string) {
   const candidate = globalThis as typeof globalThis & { document?: DocumentLike };
 
@@ -342,6 +441,11 @@ export default function App() {
   const [syncStatus, setSyncStatus] = useState(isSupabaseConfigured ? 'Cloud profile ready.' : 'Supabase env missing.');
   const [isSignupPromptVisible, setIsSignupPromptVisible] = useState(false);
   const [hasSignupPromptShown, setHasSignupPromptShown] = useState(false);
+  const [shouldOpenAuthPanel, setShouldOpenAuthPanel] = useState(false);
+  const [capturedReferralCode, setCapturedReferralCode] = useState('');
+  const [referralStats, setReferralStats] = useState<ReferralStats | null>(null);
+  const [referralMessage, setReferralMessage] = useState('');
+  const [isReferralLoading, setIsReferralLoading] = useState(false);
 
   const unitIndex = Math.max(
     learningUnits.findIndex((unit) => unit.id === selectedUnitId),
@@ -387,6 +491,16 @@ export default function App() {
   useEffect(() => {
     installWebFontStack();
     setDocumentTitle('Luo101');
+    const referralCode = captureReferralCodeFromUrl() || getStoredReferralCode();
+    setCapturedReferralCode(referralCode);
+
+    if (referralCode) {
+      setAuthMode('sign-up');
+      setShouldOpenAuthPanel(true);
+      setHasSignupPromptShown(true);
+      openTab('profile');
+    }
+
     void setAudioModeAsync({ playsInSilentMode: true }).catch(() => undefined);
   }, []);
 
@@ -430,6 +544,7 @@ export default function App() {
     }
 
     void loadCloudProfile(session);
+    void loadReferralProgram(session);
   }, [session?.user.id]);
 
   useEffect(() => {
@@ -602,6 +717,125 @@ export default function App() {
     await syncProgressToCloud(activeSession);
   }
 
+  async function loadReferralProgram(activeSession = session) {
+    if (!activeSession) {
+      setReferralStats(null);
+      return;
+    }
+
+    setIsReferralLoading(true);
+
+    const { data: codeRecord, error: codeError } = await supabase
+      .from('referral_codes')
+      .select('code')
+      .eq('user_id', activeSession.user.id)
+      .maybeSingle<{ code: string }>();
+
+    if (codeError) {
+      setReferralMessage(`Referral setup needed: ${codeError.message}`);
+      setIsReferralLoading(false);
+      return;
+    }
+
+    if (!codeRecord?.code) {
+      setReferralStats(null);
+      setIsReferralLoading(false);
+      return;
+    }
+
+    const [{ data: referrals }, { data: commissions }] = await Promise.all([
+      supabase.from('referrals').select('id').eq('referrer_user_id', activeSession.user.id),
+      supabase.from('referral_commissions').select('amount_kes, status').eq('referrer_user_id', activeSession.user.id),
+    ]);
+
+    const commissionRows = (commissions ?? []) as Array<{ amount_kes: number; status: string }>;
+    const pendingKes = commissionRows
+      .filter((item) => item.status === 'pending' || item.status === 'approved')
+      .reduce((sum, item) => sum + (item.amount_kes ?? 0), 0);
+    const paidKes = commissionRows
+      .filter((item) => item.status === 'paid')
+      .reduce((sum, item) => sum + (item.amount_kes ?? 0), 0);
+
+    setReferralStats({
+      code: codeRecord.code,
+      link: createReferralLink(codeRecord.code),
+      totalReferrals: referrals?.length ?? 0,
+      pendingKes,
+      paidKes,
+    });
+    setReferralMessage('Referral program ready.');
+    setIsReferralLoading(false);
+  }
+
+  async function attachPendingReferral(activeSession = session) {
+    const referralCode = capturedReferralCode || getStoredReferralCode();
+
+    if (!activeSession || !referralCode) {
+      return;
+    }
+
+    const { data: codeRecord, error: codeError } = await supabase
+      .from('referral_codes')
+      .select('user_id, code')
+      .eq('code', referralCode)
+      .maybeSingle<{ user_id: string; code: string }>();
+
+    if (codeError || !codeRecord) {
+      return;
+    }
+
+    if (codeRecord.user_id === activeSession.user.id) {
+      clearStoredReferralCode();
+      setCapturedReferralCode('');
+      return;
+    }
+
+    const { error } = await supabase.from('referrals').insert({
+      referrer_user_id: codeRecord.user_id,
+      referred_user_id: activeSession.user.id,
+      referral_code: codeRecord.code,
+    });
+
+    if (!error || error.code === '23505') {
+      clearStoredReferralCode();
+      setCapturedReferralCode('');
+    }
+  }
+
+  async function joinReferralProgram() {
+    if (!session) {
+      requireProfile(() => openTab('profile'), 'Create your Luo101 profile to join the referral program.');
+      return;
+    }
+
+    setIsReferralLoading(true);
+    setReferralMessage('Creating your referral link...');
+
+    const code = createReferralCode(session.user.id);
+    const { error } = await supabase.from('referral_codes').upsert({
+      user_id: session.user.id,
+      code,
+    });
+
+    if (error) {
+      setReferralMessage(error.message);
+      setIsReferralLoading(false);
+      return;
+    }
+
+    setReferralMessage('Referral link created. Share it with learners who want to start Dholuo.');
+    await loadReferralProgram(session);
+  }
+
+  async function copyReferralLink() {
+    if (!referralStats?.link) {
+      return;
+    }
+
+    const didCopy = await copyTextToClipboard(referralStats.link);
+    setReferralMessage(didCopy ? 'Referral link copied.' : 'Copy is not available here. Select and copy the link manually.');
+  }
+
   async function syncProgressToCloud(activeSession = session) {
     if (!activeSession) {
       return;
@@ -663,6 +897,7 @@ export default function App() {
 
       if (activeSession) {
         setSession(activeSession);
+        await attachPendingReferral(activeSession);
         setAuthPassword('');
         setAuthPasswordConfirm('');
         setAuthMessage('Profile created. You are signed in.');
@@ -677,6 +912,9 @@ export default function App() {
       }
 
       setSession(signInResult.data.session);
+      if (signInResult.data.session) {
+        await attachPendingReferral(signInResult.data.session);
+      }
       setAuthPassword('');
       setAuthPasswordConfirm('');
       setAuthMessage('Profile created. You are signed in.');
@@ -691,6 +929,8 @@ export default function App() {
     }
 
     setSession(result.data.session);
+    clearStoredReferralCode();
+    setCapturedReferralCode('');
     setAuthPassword('');
     setAuthPasswordConfirm('');
     setAuthMessage('Signed in.');
@@ -1020,10 +1260,18 @@ export default function App() {
             selectedPaymentPackageId={selectedPaymentPackageId}
             paymentMessage={paymentMessage}
             isPaymentStarting={isPaymentStarting}
+            initialAuthOpen={shouldOpenAuthPanel}
+            capturedReferralCode={capturedReferralCode}
+            isReferralLoading={isReferralLoading}
+            referralMessage={referralMessage}
+            referralStats={referralStats}
             onPaymentPhoneChange={setPaymentPhone}
             onSelectedPaymentPackageChange={setSelectedPaymentPackageId}
             onStartMpesaPayment={startMpesaPayment}
             onRefreshEntitlement={() => loadEntitlement()}
+            onJoinReferralProgram={joinReferralProgram}
+            onCopyReferralLink={copyReferralLink}
+            onRefreshReferralProgram={() => loadReferralProgram()}
           />
         ) : null}
           </>
@@ -2284,10 +2532,18 @@ function ProfileScreen({
   selectedPaymentPackageId,
   paymentMessage,
   isPaymentStarting,
+  initialAuthOpen,
+  capturedReferralCode,
+  isReferralLoading,
+  referralMessage,
+  referralStats,
   onPaymentPhoneChange,
   onSelectedPaymentPackageChange,
   onStartMpesaPayment,
   onRefreshEntitlement,
+  onJoinReferralProgram,
+  onCopyReferralLink,
+  onRefreshReferralProgram,
 }: {
   authDisplayName: string;
   authEmail: string;
@@ -2326,14 +2582,29 @@ function ProfileScreen({
   selectedPaymentPackageId: CoursePackage['id'];
   paymentMessage: string;
   isPaymentStarting: boolean;
+  initialAuthOpen: boolean;
+  capturedReferralCode: string;
+  isReferralLoading: boolean;
+  referralMessage: string;
+  referralStats: ReferralStats | null;
   onPaymentPhoneChange: (value: string) => void;
   onSelectedPaymentPackageChange: (packageId: CoursePackage['id']) => void;
   onStartMpesaPayment: () => void;
   onRefreshEntitlement: () => void;
+  onJoinReferralProgram: () => void;
+  onCopyReferralLink: () => void;
+  onRefreshReferralProgram: () => void;
 }) {
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isProgressOpen, setIsProgressOpen] = useState(false);
   const [isAccountOpen, setIsAccountOpen] = useState(false);
+
+  useEffect(() => {
+    if (!session && initialAuthOpen) {
+      setIsAuthOpen(true);
+    }
+  }, [initialAuthOpen, session]);
+
   const completedUnits = learningUnits.filter((item) => {
     const progress = unitProgressById[item.id];
     return progress?.reviewCompleted && progress.correctExerciseIds.length === item.exercises.length;
@@ -2388,6 +2659,13 @@ function ProfileScreen({
           onSelectedPackageChange={onSelectedPaymentPackageChange}
           onStartMpesaPayment={onStartMpesaPayment}
         />
+        {capturedReferralCode ? (
+          <View style={styles.referralCard}>
+            <Text style={styles.cardLabel}>Referral Link Detected</Text>
+            <Text style={styles.referralTitle}>You are joining through a Luo101 referral.</Text>
+            <Text style={styles.referralText}>Create your profile and we will connect this signup to referral code {capturedReferralCode}.</Text>
+          </View>
+        ) : null}
         <ProfileTrustLinks onOpenPage={onOpenPublicPage} />
       </View>
     );
@@ -2420,6 +2698,15 @@ function ProfileScreen({
         onRefreshEntitlement={onRefreshEntitlement}
         onSelectedPackageChange={onSelectedPaymentPackageChange}
         onStartMpesaPayment={onStartMpesaPayment}
+      />
+
+      <ReferralProgramCard
+        isLoading={isReferralLoading}
+        referralMessage={referralMessage}
+        referralStats={referralStats}
+        onCopyReferralLink={onCopyReferralLink}
+        onJoinReferralProgram={onJoinReferralProgram}
+        onRefreshReferralProgram={onRefreshReferralProgram}
       />
 
       <View style={styles.profileGrid}>
@@ -2500,6 +2787,83 @@ function ProfileScreen({
           <Text style={styles.profileGhostButtonText}>Sign Out</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function ReferralProgramCard({
+  isLoading,
+  referralMessage,
+  referralStats,
+  onCopyReferralLink,
+  onJoinReferralProgram,
+  onRefreshReferralProgram,
+}: {
+  isLoading: boolean;
+  referralMessage: string;
+  referralStats: ReferralStats | null;
+  onCopyReferralLink: () => void;
+  onJoinReferralProgram: () => void;
+  onRefreshReferralProgram: () => void;
+}) {
+  const [isOpen, setIsOpen] = useState(!referralStats);
+  const hasJoined = Boolean(referralStats);
+
+  return (
+    <View style={styles.referralCard}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: isOpen }}
+        onPress={() => setIsOpen((current) => !current)}
+        style={styles.referralHeader}
+      >
+        <View style={styles.paymentHeaderCopy}>
+          <Text style={styles.cardLabel}>Referral Program</Text>
+          <Text style={styles.referralTitle}>{hasJoined ? 'Earn from your Luo101 referrals' : 'Join and earn KES 200 per course sale'}</Text>
+          <Text style={styles.referralText}>Every registered learner can share Luo101. We pay referral earnings manually via M-Pesa every Tuesday and Friday.</Text>
+        </View>
+        <Text style={styles.paymentToggle}>{isOpen ? 'Hide' : 'View'}</Text>
+      </Pressable>
+
+      {isOpen ? (
+        <View style={styles.referralBody}>
+          {hasJoined && referralStats ? (
+            <>
+              <View style={styles.referralLinkBox}>
+                <Text style={styles.referralLinkLabel}>Your referral link</Text>
+                <Text selectable style={styles.referralLinkText}>{referralStats.link}</Text>
+              </View>
+              <View style={styles.profileActionRow}>
+                <Pressable accessibilityRole="button" onPress={onCopyReferralLink} style={styles.profilePrimaryButton}>
+                  <Text style={styles.profilePrimaryButtonText}>Copy Link</Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" onPress={onRefreshReferralProgram} style={styles.profileSecondaryButton}>
+                  <Text style={styles.profileSecondaryButtonText}>Refresh</Text>
+                </Pressable>
+              </View>
+              <View style={styles.profileGrid}>
+                <MetricCard label="Referrals" value={referralStats.totalReferrals.toString()} />
+                <MetricCard label="Pending" value={`KES ${referralStats.pendingKes.toLocaleString()}`} />
+                <MetricCard label="Paid" value={`KES ${referralStats.paidKes.toLocaleString()}`} />
+                <MetricCard label="Per sale" value={`KES ${REFERRAL_COMMISSION_KES}`} />
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.referralText}>Create your unique referral link and share it with friends, family, and learners who want to preserve Dholuo.</Text>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isLoading}
+                onPress={onJoinReferralProgram}
+                style={[styles.profilePrimaryButton, isLoading && styles.profileButtonDisabled]}
+              >
+                <Text style={styles.profilePrimaryButtonText}>{isLoading ? 'Creating...' : 'Join Referral Program'}</Text>
+              </Pressable>
+            </>
+          )}
+          <Text style={styles.profileSyncText}>{referralMessage || 'Commission is created only after a referred learner completes a paid course purchase.'}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -4845,6 +5209,58 @@ const styles = StyleSheet.create({
     color: '#B42318',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  referralCard: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    marginTop: 12,
+    padding: 14,
+  },
+  referralHeader: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  referralTitle: {
+    color: '#10251B',
+    fontSize: 19,
+    fontWeight: '600',
+    lineHeight: 24,
+  },
+  referralText: {
+    color: '#5D6D65',
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 19,
+    marginTop: 4,
+  },
+  referralBody: {
+    gap: 12,
+    marginTop: 14,
+  },
+  referralLinkBox: {
+    backgroundColor: '#F7FAF6',
+    borderColor: '#DDE8D8',
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 12,
+  },
+  referralLinkLabel: {
+    color: '#0E6B4F',
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  referralLinkText: {
+    color: '#10251B',
+    fontSize: 14,
+    fontWeight: '500',
+    lineHeight: 20,
+    marginTop: 4,
   },
   profileTrustCard: {
     backgroundColor: '#FFFFFF',

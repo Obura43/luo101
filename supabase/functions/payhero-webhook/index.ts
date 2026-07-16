@@ -112,6 +112,37 @@ Deno.serve(async (req) => {
         live_consultation_included: tier === 'consultation',
       });
     }
+
+    const { data: referral } = await supabase
+      .from('referrals')
+      .select('id, referrer_user_id, referred_user_id')
+      .eq('referred_user_id', attempt.user_id)
+      .maybeSingle();
+
+    if (referral?.id) {
+      const { data: existingCommission } = await supabase
+        .from('referral_commissions')
+        .select('id')
+        .eq('referred_user_id', attempt.user_id)
+        .limit(1)
+        .maybeSingle();
+
+      if (!existingCommission) {
+        await supabase.from('referral_commissions').insert({
+          referral_id: referral.id,
+          referrer_user_id: referral.referrer_user_id,
+          referred_user_id: referral.referred_user_id,
+          payment_attempt_id: attempt.id,
+          amount_kes: 200,
+          status: 'pending',
+        });
+
+        await supabase
+          .from('referrals')
+          .update({ status: 'converted', converted_at: new Date().toISOString() })
+          .eq('id', referral.id);
+      }
+    }
   }
 
   return jsonResponse({ ok: true, status: nextStatus });
