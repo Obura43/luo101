@@ -833,7 +833,7 @@ export default function App() {
     }
 
     const didCopy = await copyTextToClipboard(referralStats.link);
-    setReferralMessage(didCopy ? 'Referral link copied.' : 'Copy is not available here. Select and copy the link manually.');
+    setReferralMessage(didCopy ? 'Link copied' : 'Copy is not available here. Select and copy the link manually.');
   }
 
   async function syncProgressToCloud(activeSession = session) {
@@ -2861,7 +2861,9 @@ function ReferralProgramCard({
               </Pressable>
             </>
           )}
-          <Text style={styles.profileSyncText}>{referralMessage || 'Commission is created only after a referred learner completes a paid course purchase.'}</Text>
+          <Text style={[styles.profileSyncText, referralMessage === 'Link copied' && styles.referralSuccessText]}>
+            {referralMessage || 'Commission is created only after a referred learner completes a paid course purchase.'}
+          </Text>
         </View>
       ) : null}
     </View>
@@ -2953,9 +2955,14 @@ function PaymentUpgradeCard({
               <Text style={[styles.packageTitle, isSelected && styles.packageTitleActive]}>{item.title}</Text>
               <Text style={[styles.packagePrice, isSelected && styles.packagePriceActive]}>KES {item.priceKes.toLocaleString()}</Text>
               <Text style={[styles.packageSummary, isSelected && styles.packageSummaryActive]}>{item.summary}</Text>
-              {item.unlocks.map((unlock) => (
-                <Text key={`${item.id}-${unlock}`} style={[styles.packageUnlock, isSelected && styles.packageUnlockActive]}>{unlock}</Text>
-              ))}
+              <View style={styles.packageUnlockList}>
+                {item.unlocks.map((unlock) => (
+                  <View key={`${item.id}-${unlock}`} style={styles.packageUnlockRow}>
+                    <Text style={[styles.packageUnlockTick, isSelected && styles.packageUnlockTickActive]}>✓</Text>
+                    <Text style={[styles.packageUnlock, isSelected && styles.packageUnlockActive]}>{unlock}</Text>
+                  </View>
+                ))}
+              </View>
             </Pressable>
           );
         })}
@@ -5188,7 +5195,34 @@ const styles = StyleSheet.create({
   packageSummaryActive: {
     color: '#D9F5E9',
   },
+  packageUnlockList: {
+    gap: 7,
+    marginTop: 2,
+  },
+  packageUnlockRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  packageUnlockTick: {
+    backgroundColor: '#E7F4ED',
+    borderRadius: 999,
+    color: '#0E6B4F',
+    fontSize: 10,
+    fontWeight: '700',
+    height: 18,
+    lineHeight: 18,
+    marginTop: 1,
+    overflow: 'hidden',
+    textAlign: 'center',
+    width: 18,
+  },
+  packageUnlockTickActive: {
+    backgroundColor: '#F1C84B',
+    color: '#0A3A2B',
+  },
   packageUnlock: {
+    flex: 1,
     color: '#5D6D65',
     fontSize: 12,
     fontWeight: '500',
@@ -5261,6 +5295,10 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     lineHeight: 20,
     marginTop: 4,
+  },
+  referralSuccessText: {
+    color: '#0E6B4F',
+    fontWeight: '700',
   },
   profileTrustCard: {
     backgroundColor: '#FFFFFF',
