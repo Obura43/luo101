@@ -1072,7 +1072,7 @@ export default function App() {
                 label="Start your Luo101 profile"
                 syncStatus={syncStatus}
                 title="Get started for free"
-                body="Create your Luo101 profile to save progress, keep your Unit work, and continue learning Dholuo. Remember Unit one should remain free for all registered users."
+                body="Create your Luo101 profile to save progress, keep your Unit work, and continue learning Dholuo. Unit 1 is free for all users."
                 onAuthDisplayNameChange={setAuthDisplayName}
                 onAuthEmailChange={setAuthEmail}
                 onAuthEmailConfirmChange={setAuthEmailConfirm}
