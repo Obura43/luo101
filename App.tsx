@@ -113,6 +113,21 @@ type LocationLike = {
 type NavigatorLike = {
   clipboard?: { writeText: (value: string) => Promise<void> };
 };
+type ClipboardDocumentLike = {
+  body?: {
+    appendChild: (node: unknown) => void;
+    removeChild: (node: unknown) => void;
+  };
+  createElement?: (tagName: string) => {
+    focus?: () => void;
+    readOnly?: boolean;
+    select?: () => void;
+    setAttribute?: (name: string, value: string) => void;
+    style?: Record<string, string>;
+    value?: string;
+  };
+  execCommand?: (command: string) => boolean;
+};
 
 const STORAGE_KEY = 'luo101-progress-v1';
 const REFERRAL_STORAGE_KEY = 'luo101-referral-code';
@@ -354,18 +369,41 @@ function createReferralLink(code: string) {
 }
 
 async function copyTextToClipboard(value: string) {
-  const candidate = globalThis as typeof globalThis & { navigator?: NavigatorLike };
+  const candidate = globalThis as typeof globalThis & { document?: ClipboardDocumentLike; navigator?: NavigatorLike };
 
-  if (!candidate.navigator?.clipboard) {
+  if (candidate.navigator?.clipboard) {
+    try {
+      await candidate.navigator.clipboard.writeText(value);
+      return true;
+    } catch {
+      // Fall through to the legacy browser copy path below.
+    }
+  }
+
+  const documentRef = candidate.document;
+
+  if (!documentRef?.body || !documentRef.createElement || !documentRef.execCommand) {
     return false;
   }
 
-  try {
-    await candidate.navigator.clipboard.writeText(value);
-    return true;
-  } catch {
-    return false;
+  const input = documentRef.createElement('textarea');
+  input.value = value;
+  input.readOnly = true;
+  input.setAttribute?.('aria-hidden', 'true');
+
+  if (input.style) {
+    input.style.position = 'fixed';
+    input.style.left = '-9999px';
+    input.style.top = '0';
   }
+
+  documentRef.body.appendChild(input);
+  input.focus?.();
+  input.select?.();
+
+  const didCopy = documentRef.execCommand('copy');
+  documentRef.body.removeChild(input);
+  return didCopy;
 }
 
 function setDocumentTitle(title: string) {
@@ -2862,8 +2900,12 @@ function ReferralProgramCard({
                 <Text selectable style={styles.referralLinkText}>{referralStats.link}</Text>
               </View>
               <View style={styles.profileActionRow}>
-                <Pressable accessibilityRole="button" onPress={onCopyReferralLink} style={styles.profilePrimaryButton}>
-                  <Text style={styles.profilePrimaryButtonText}>Copy Link</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={onCopyReferralLink}
+                  style={[styles.profilePrimaryButton, referralMessage === 'Link copied' && styles.referralCopiedButton]}
+                >
+                  <Text style={styles.profilePrimaryButtonText}>{referralMessage === 'Link copied' ? 'Link copied' : 'Copy Link'}</Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" onPress={onRefreshReferralProgram} style={styles.profileSecondaryButton}>
                   <Text style={styles.profileSecondaryButtonText}>Refresh</Text>
@@ -3302,25 +3344,25 @@ const styles = StyleSheet.create({
   brandLockup: {
     flexShrink: 1,
     justifyContent: 'center',
-    marginLeft: -22,
+    marginLeft: -12,
     minHeight: 62,
     overflow: 'hidden',
     width: 410,
   },
   brandLockupCompact: {
-    marginLeft: -24,
+    marginLeft: -14,
     minHeight: 54,
     width: 240,
   },
   brandLogo: {
     height: 66,
-    marginLeft: -140,
+    marginLeft: -130,
     maxWidth: 560,
     width: 460,
   },
   brandLogoCompact: {
     height: 54,
-    marginLeft: -48,
+    marginLeft: -36,
     maxWidth: 300,
     width: 300,
   },
@@ -5327,6 +5369,9 @@ const styles = StyleSheet.create({
   referralSuccessText: {
     color: '#0E6B4F',
     fontWeight: '700',
+  },
+  referralCopiedButton: {
+    backgroundColor: '#0A7C5B',
   },
   profileTrustCard: {
     backgroundColor: '#FFFFFF',
